@@ -1,4 +1,4 @@
-name: Crash Test Backlog
+name: "Crash Test Backlog"
 on: workflow_dispatch
 jobs:
   seed:
