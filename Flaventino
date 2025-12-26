@@ -1,0 +1,8 @@
+{
+  "milestone": { "title": "Sprint Drone 1", "due": "2026-01-15" },
+  "epic": { "title": "[EPIC] Système de Propulsion", "body": "Regroupe moteur et hélices." },
+  "tasks": [
+    { "id": "T1", "title": "Acheter les moteurs", "body": "Modèle Brushless 2200kv", "labels": "hardware" },
+    { "id": "T2", "title": "Souder les contrôleurs", "body": "Nécessite T1. Bloqué par #ID_T1", "labels": "electronique" }
+  ]
+}
