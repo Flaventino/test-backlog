@@ -1,8 +1,19 @@
 {
-  "milestone": { "title": "Sprint Drone 1", "due": "2026-01-15" },
-  "epic": { "title": "[EPIC] Système de Propulsion", "body": "Regroupe moteur et hélices." },
-  "tasks": [
-    { "id": "T1", "title": "Acheter les moteurs", "body": "Modèle Brushless 2200kv", "labels": "hardware" },
-    { "id": "T2", "title": "Souder les contrôleurs", "body": "Nécessite T1. Bloqué par #ID_T1", "labels": "electronique" }
+  "project_name": "Drone Project V1",
+  "milestones": [
+    {
+      "title": "Sprint 1: Core Systems",
+      "due_on": "2026-03-01T18:00:00+01:00",
+      "epics": [
+        {
+          "title": "[EPIC] Power & Propulsion",
+          "body": "Focuses on battery management and motor assembly.",
+          "tasks": [
+            { "id": "T1", "title": "Buy LiPo batteries", "estimate": "1d" },
+            { "id": "T2", "title": "Calibrate ESCs", "depends_on": "T1", "estimate": "4h" }
+          ]
+        }
+      ]
+    }
   ]
 }
