@@ -1,16 +1,34 @@
 {
-  "project_name": "Drone Project V1",
+  "project_name": "Drone Development - Dynamic Workflow",
   "milestones": [
     {
-      "title": "Sprint 1: Core Systems",
-      "due_on": "2026-03-01T18:00:00+01:00",
+      "id": "M1",
+      "title": "Phase 1: Procurement & Logistics",
+      "start_delay": 0,
+      "duration_days": 7,
       "epics": [
         {
-          "title": "[EPIC] Power & Propulsion",
-          "body": "Focuses on battery management and motor assembly.",
+          "id": "E1",
+          "title": "[EPIC] Supply Chain",
           "tasks": [
-            { "id": "T1", "title": "Buy LiPo batteries", "estimate": "1d" },
-            { "id": "T2", "title": "Calibrate ESCs", "depends_on": "T1", "estimate": "4h" }
+            { "id": "T1", "title": "Order Flight Controller and GPS", "estimate": "1d" },
+            { "id": "T2", "title": "Receive Frame and Motors", "estimate": "3d" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Phase 2: Core Assembly",
+      "start_delay": 7,
+      "duration_days": 7,
+      "epics": [
+        {
+          "id": "E2",
+          "title": "[EPIC] Physical Build",
+          "tasks": [
+            { "id": "T3", "title": "Assemble Frame", "depends_on": "T2", "estimate": "4h" },
+            { "id": "T4", "title": "Mount FC and Wire Motors", "depends_on": "T1", "estimate": "6h" }
           ]
         }
       ]
