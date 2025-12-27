@@ -1,8 +1,72 @@
-import json, subprocess, os
+import json, subprocess, os, sys, time
 
 def run_gh(args):
+    """Executes a GitHub CLI command and returns the output."""
     result = subprocess.run(["gh"] + args, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"DEBUG ERROR: {result.stderr}")
     return result.stdout.strip()
+
+# --- 1. SAFETY LOCK ---
+lock_file = "deployed.lock"
+if os.path.exists(lock_file):
+    print("⚠️  PROJECT ALREADY DEPLOYED: Aborting to prevent duplicates.")
+    sys.exit(0)
+else:
+    REPO = os.environ.get('GITHUB_REPOSITORY')
+
+# --- 2. LOAD DATA ---
+plan_file = 'backlog.json'
+try:
+    with open(f'.github/{plan_file}') as f:
+        plan = json.load(f)
+except FileNotFoundError:
+    print(f'❌ ERROR: {plan_file} not found in .github/ directory.')
+    sys.exit(1)
+
+print(f"🏗️  Deploying: {plan.get('project_name', 'Unnamed Project')}")
+
+# --- 3. PROCESSING ---
+for ms in plan["milestones"]:
+    print(f"\n📅 Milestone: {ms.get('title')}")
+    
+    # Create Milestone
+    
+    due_date = ms.get('due_on')
+    run_gh(["api", f"repos/{REPO}/milestones", "-f", f"title={ms['title']}", "-f", f"due_on={due_date}"])
+    
+    time.sleep(1) # API protection
+    m_no = run_gh(["api", f"repos/{REPO}/milestones", "--jq", f'.[] | select(.title=="{ms["title"]}") | .number'])
+
+    for epic in ms["epics"]:
+        # Create EPIC
+        e_url = run_gh(["issue", "create", "--title", epic['title'], "--body", "Initializing tasks...", "--milestone", m_no, "--label", "epic"])
+        e_no = e_url.split("/")[-1]
+        
+        task_list_md = ""
+        created_tasks = {}
+
+        for t in epic["tasks"]:
+            # Setup metadata for the body
+            dep_text = f"\n\n⚠️ **Depends on:** #{created_tasks.get(t['depends_on'])}" if "depends_on" in t else ""
+            est_text = f"\n⏱️ **Estimate:** {t.get('estimate', 'N/A')}"
+            
+            # Create Task
+            t_url = run_gh(["issue", "create", "--title", t['title'], "--body", f"Linked to Epic #{e_no}{dep_text}{est_text}", "--milestone", m_no])
+            t_no = t_url.split("/")[-1]
+            
+            # Record ID for dependencies
+            task_key = t.get('id', t['title'])
+            created_tasks[task_key] = t_no
+            task_list_md += f"- [ ] #{t_no} {t['title']}\n"
+        
+        # Update Epic with the checklist
+        full_body = f"{epic.get('body', '')}\n\n### 📋 Task Checklist\n{task_list_md}"
+        run_gh(["issue", "edit", e_no, "--body", full_body])
+
+
+
+
 
 # 1. Charger les données
 with open(".github/backlog.json") as f:
