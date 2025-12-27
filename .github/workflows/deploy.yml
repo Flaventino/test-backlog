@@ -1,12 +1,22 @@
-name: Crash Test Backlog
-on: workflow_dispatch
+name: Deploy Project Backlog
+on:
+  workflow_dispatch:
+
 jobs:
-  seed:
+  build-and-deploy:
+    name: Run Python Seeder
     runs-on: ubuntu-latest
-    permissions: { issues: write, contents: read }
+    permissions:
+      issues: write
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Run Seeder
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Run Deployment Script
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/seed.py
