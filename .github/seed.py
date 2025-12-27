@@ -1,4 +1,5 @@
 import json, subprocess, os, sys, time
+from datetime import datetime, timedelta
 
 def run_gh(args):
     """Executes a GitHub CLI command and returns the output."""
@@ -12,10 +13,13 @@ lock_file = "deployed.lock"
 if os.path.exists(lock_file):
     print("⚠️  PROJECT ALREADY DEPLOYED: Aborting to prevent duplicates.")
     sys.exit(0)
-else:
-    REPO = os.environ.get('GITHUB_REPOSITORY')
 
-# --- 2. LOAD DATA ---
+# --- 2. CONFIG ---
+day0 = datetime.now() # Project start date
+repo = os.environ.get('GITHUB_REPOSITORY')
+created_tasks = {} # Mapping ID -> GitHub Issue number
+
+# --- 3. LOAD DATA ---
 plan_file = 'backlog.json'
 try:
     with open(f'.github/{plan_file}') as f:
@@ -24,9 +28,9 @@ except FileNotFoundError:
     print(f'❌ ERROR: {plan_file} not found in .github/ directory.')
     sys.exit(1)
 
+# --- 3. PROCESSING ---
 print(f"🏗️  Deploying: {plan.get('project_name', 'Unnamed Project')}")
 
-# --- 3. PROCESSING ---
 for ms in plan["milestones"]:
     print(f"\n📅 Milestone: {ms.get('title')}")
     
