@@ -1,14 +1,13 @@
-name: Deploy Project Backlog
+name: Deploy Project roadmap
 on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
-    name: Run Python Seeder
+  validate-and-deploy-plan:
+    name: Validate & Deploy Roadmap to GitHub Issues
     runs-on: ubuntu-latest
     permissions:
-      issues: write
-      contents: write
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
