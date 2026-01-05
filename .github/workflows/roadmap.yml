@@ -4,17 +4,22 @@ on:
 
 jobs:
   validate-and-deploy-plan:
-    name: Validate & Deploy Roadmap to GitHub Issues
+    name: Validate & Deploy Roadmap To GitHub Issues
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v3
+
+      - name: Run The Plan Validation Script
+        run: uv run 
+
       - name: Run Deployment Script
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
