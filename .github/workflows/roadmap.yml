@@ -9,6 +9,10 @@ jobs:
     permissions:
       contents: read
     env:
+      PLAN: '_roadmap/roadmap_plan.json'
+      LOCK_FILE: '_roadmap/.roadmap_activated'
+      PLAN_CHECKER: '_roadmap/validate_plan.py'
+      PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
       
     steps:
       - name: Checkout Repository
@@ -18,7 +22,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Run The Plan Validation Script
-        run: uv run 
+        run: uv run "$PLAN_CHECKER" --file "$PLAN" --marker "$LOCK_FILE"
 
       - name: Run Deployment Script
         env:
