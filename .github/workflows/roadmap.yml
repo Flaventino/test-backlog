@@ -21,10 +21,15 @@ jobs:
       - name: Setup UV
         uses: astral-sh/setup-uv@v3
 
-      - name: Run The Plan Validation Script
-        run: uv run "$PLAN_CHECKER" --file "$PLAN" --marker "$LOCK_FILE"
+      - name: Validate Project Plan
+        id: validate
+        run: uv run "$PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
 
-      - name: Run Deployment Script
+      - name: Deploy GitHub Issues
+        permissions:
+          contents: read
+          issues: write
+        if: steps.validate.outputs.run_deploy == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 .github/seed.py
+        run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_"
