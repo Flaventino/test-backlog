@@ -8,7 +8,7 @@ rules defined by the protocol.
 """
 
 
-# ///   I P O R T S   ///
+# ///   I M P O R T S   ///
 import json
 from typing import Any, Dict, List, Set, Optional, Literal
 from pathlib import Path
