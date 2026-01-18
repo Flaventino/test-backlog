@@ -165,6 +165,9 @@ class Project(BaseModel):
     tasks: list[Task]
 
 
+
+
+# ///   F U N C T I O N S   ///
 def _loc_to_json_path(loc: Iterable[Any]) -> str:
     """Convert a Pydantic error location to a JSONPath-like string.
 
@@ -654,12 +657,11 @@ def validate_project_file(file_path: str | Path) -> bool:
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    """Create the CLI argument parser."""
-    parser = argparse.ArgumentParser(
-        description="Validate a project JSON file against SPEC-1.0.0."
-    )
-    parser.add_argument("json_file", help="Path to the JSON file to validate.")
-    return parser
+   """Create the CLI argument parser."""
+   summary = "Validate a project JSON file against SPEC-1.0.0."
+   parser = argparse.ArgumentParser(description=summary)
+   parser.add_argument("plan", help="Path to the JSON file to validate.")
+   return parser
 
 
 def main() -> None:
