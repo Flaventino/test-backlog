@@ -1,448 +1,674 @@
 # ///   A B S T R A C T   ///
 """
-Compliance validation script for the IT Project Formalization and 
-Instantiation Protocol (SPEC-1.0.0)
+Protocol Compliance Validator (SPEC-1.0.0)
 
-This module verifies that a JSON file respects the structure and normative 
-rules defined by the protocol.
+This script validates whether a given JSON file is a conforming instantiation of
+the protocol "PROTOCOLE DE FORMALISATION ET D'INSTANCIATION DE PROJETS
+INFORMATIQUES" (SPEC-1.0.0).
+
+Validation covers two inseparable dimensions:
+1) Structural compliance (strict schema, types, required fields, allowed values)
+2) Minimal normative compliance (referential integrity, uniqueness, mandatory
+   protocol rules, and specified warnings)
+
+Output:
+- A report in English listing all detected issues (errors and warnings), each
+  with:
+  * Category (error/warning)
+  * Location (JSON path)
+  * Clear description
+  * Correction suggestion (when possible)
+- A boolean validity status:
+  * True  => no blocking errors
+  * False => at least one blocking error
+
+Requirements:
+- Python 3.11+
+- pydantic v2
 """
+
 
 
 # ///   I M P O R T S   ///
+import argparse
 import json
-from typing import Any, Dict, List, Set, Optional, Literal
+import sys
+
+from enum import Enum
+from typing import Any, Iterable, Literal
 from pathlib import Path
-from pydantic import BaseModel, Field, field_validator
-from pydantic import ValidationError as PydanticValidationError
 from dataclasses import dataclass
+
+from pydantic import ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
+
+from __future__ import annotations
+################################################################################
 
 
 # ///   C L A S S E S   ///
-@dataclass
-class ValidationError:
-  """Represents a validation error with its context.
+class Severity(str, Enum):
+    """Issue severity as required by the protocol."""
+
+    ERROR = "error"
+    WARNING = "warning"
+
+
+class IssueType(str, Enum):
+    """Semantic categorization of validation issues."""
+
+    STRUCTURAL = "structural"
+    REFERENTIAL = "referential"
+    UNIQUENESS = "uniqueness"
+    PROTOCOL_RULE = "protocol_rule"
+    RECOMMENDATION = "recommendation"
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationIssue:
+    """Represents a single validation anomaly."""
+
+    severity: Severity
+    issue_type: IssueType
+    location: str
+    message: str
+    suggestion: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationReport:
+    """Aggregates validation issues and provides convenience helpers."""
+
+    issues: list[ValidationIssue]
+
+    def has_errors(self) -> bool:
+        """Returns True if at least one blocking error exists."""
+        return any(i.severity == Severity.ERROR for i in self.issues)
+
+
+class Metadata(BaseModel):
+    """Pydantic model for project metadata."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    projet_nom: str
+    version_protocole: Literal["SPEC-1.0.0"]
+    description: str | None = None
+
+
+class Milestone(BaseModel):
+    """Pydantic model for milestones."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str
+    titre: str
+    configuration: Literal["Actif", "Gate"]
+    start_delay: StrictInt = Field(ge=0)
+    duration: StrictInt = Field(ge=0)
+    description: str | None = None
+
+
+class Epic(BaseModel):
+    """Pydantic model for epics."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str
+    parent_id: str
+    titre: str
+    configuration: Literal["Standard", "Discovery"]
+    label: str | None = None
+    description: str | None = None
+
+
+class Task(BaseModel):
+    """Pydantic model for tasks."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str
+    parent_link: str
+    titre: str
+    configuration: Literal["Indépendante", "Sequentielle", "Orpheline", "Membre"]
+    estimate: StrictInt | StrictFloat = Field(ge=0)
+    depends_on: list[str]
+    description: str | None = None
+    assignee: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_independente_depends_on(self) -> "Task":
+        """Enforce protocol rule: Independent tasks must have an empty depends_on.
+
+        Returns:
+            The validated task.
+
+        Raises:
+            ValueError: If the rule is violated.
+        """
+        if self.configuration == "Indépendante" and self.depends_on:
+            raise ValueError(
+                "For configuration 'Indépendante', 'depends_on' must be an empty "
+                "array []."
+            )
+        return self
+
+
+class Project(BaseModel):
+    """Root Pydantic model for the protocol JSON document."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    metadata: Metadata
+    milestones: list[Milestone]
+    epics: list[Epic]
+    tasks: list[Task]
+
+
+def _loc_to_json_path(loc: Iterable[Any]) -> str:
+    """Convert a Pydantic error location to a JSONPath-like string.
+
+    Args:
+        loc: Pydantic "loc" iterable (e.g., ('tasks', 0, 'id')).
+
+    Returns:
+        A JSONPath-like location (e.g., $.tasks[0].id).
+    """
+    path = "$"
+    for part in loc:
+        if isinstance(part, int):
+            path += f"[{part}]"
+        else:
+            path += f".{part}"
+    return path
+
+
+def _read_json_file(file_path: Path) -> Any:
+    """Read and parse a JSON file.
+
+    Args:
+        file_path: Path to a JSON file.
+
+    Returns:
+        Parsed JSON content.
+
+    Raises:
+        OSError: If the file cannot be read.
+        json.JSONDecodeError: If the file is not valid JSON.
+    """
+    return json.loads(file_path.read_text(encoding="utf-8"))
   
-  Attributes:
-    category (str): The category of the validation error.
-    message (str): The detailed error message.
-    location (str): The location where the error occurred.
-  """
-
-  # --- Classes attributes declaration & definition
-  category: str
-  message: str
-  location: str = ""
-
-def __str__(self) -> str:
-"""Returns a formatted string representation of the error.
-
-Returns:
-str: Formatted error message with optional location.
-"""
-location_str = f" (in {self.location})" if self.location else ""
-return f"[{self.category}] {self.message}{location_str}"
-
-
-class ProjectMetadata(BaseModel):
-"""Project metadata following SPEC-1.0.0 protocol."""
-
-projet_nom: str = Field(..., min_length=1)
-version_protocole: Literal["SPEC-1.0.0"]
-description: str = Field(..., min_length=1)
-
-
-class ProjectMilestone(BaseModel):
-"""Project milestone following SPEC-1.0.0 protocol."""
-
-id: str = Field(..., min_length=1)
-titre: str = Field(..., min_length=1)
-configuration: Literal["Actif", "Gate"]
-start_delay: int = Field(..., ge=0)
-duration: int = Field(..., gt=0)
-description: str = Field(..., min_length=1)
-
-
-class ProjectEpic(BaseModel):
-"""Project epic following SPEC-1.0.0 protocol."""
-
-id: str = Field(..., min_length=1)
-parent_id: str = Field(..., min_length=1)
-titre: str = Field(..., min_length=1)
-configuration: Literal["Standard", "Discovery"]
-label: str = Field(..., min_length=1)
-description: str = Field(..., min_length=1)
-
-
-class ProjectTask(BaseModel):
-"""Project task following SPEC-1.0.0 protocol."""
-
-id: str = Field(..., min_length=1)
-parent_link: str = Field(..., min_length=1)
-titre: str = Field(..., min_length=1)
-configuration: Literal["Independante", "Sequentielle", "Orpheline", "Membre"]
-estimate: float = Field(..., gt=0)
-depends_on: List[str] = Field(default_factory=list)
-description: str = Field(..., min_length=1)
-assignee: Optional[str] = None
-
-@field_validator('assignee')
-@classmethod
-def validate_assignee(cls, v):
-if v is not None and not isinstance(v, str):
-raise ValueError('assignee must be a string')
-return v
-
-
-class ProjectData(BaseModel):
-"""Complete project data structure following SPEC-1.0.0 protocol."""
-
-metadata: ProjectMetadata
-milestones: List[ProjectMilestone]
-epics: List[ProjectEpic]
-tasks: List[ProjectTask]
-
-
-class ProjectValidator:
-"""
-Compliance validator for projects according to SPEC-1.0.0 protocol.
-
-Verifies structural compliance (JSON schema) and normative compliance 
-(business rules) of a project file according to the defined protocol.
-
-Attributes:
-errors (List[ValidationError]): List of validation errors found.
-project_data (ProjectData | None): Parsed and validated project data.
-"""
-
-def __init__(self):
-"""Initializes the ProjectValidator with empty state."""
-self.errors: List[ValidationError] = []
-self.project_data: ProjectData | None = None
-
-def validate_project_file(
-self, 
-file_path: str | Path
-) -> tuple[bool, List[ValidationError]]:
-"""
-Validates a project JSON file according to SPEC-1.0.0 protocol.
-
-Args:
-file_path (str | Path): Path to the JSON file to validate.
-
-Returns:
-tuple[bool, List[ValidationError]]: A tuple containing:
-- bool: True if the file is valid, False otherwise.
-- List[ValidationError]: List of validation errors found.
-
-Raises:
-FileNotFoundError: If the specified file cannot be found.
-json.JSONDecodeError: If the file contains invalid JSON.
-"""
-self._reset_validation()
-
-try:
-with open(file_path, 'r', encoding='utf-8') as file:
-raw_data = json.load(file)
-except (FileNotFoundError, json.JSONDecodeError) as e:
-self._add_error("FILE", f"Cannot read JSON file: {e}")
-return False, self.errors
-
-return self.validate_project_data(raw_data)
-
-def validate_project_data(
-self, 
-raw_data: Dict[str, Any]
-) -> tuple[bool, List[ValidationError]]:
-"""
-Validates project data according to SPEC-1.0.0 protocol.
-
-Args:
-raw_data (Dict[str, Any]): Dictionary containing the project 
-data to validate.
-
-Returns:
-tuple[bool, List[ValidationError]]: A tuple containing:
-- bool: True if the data is valid, False otherwise.
-- List[ValidationError]: List of validation errors found.
-"""
-self._reset_validation()
-
-# First, validate basic structure with Pydantic
-try:
-self.project_data = ProjectData.model_validate(raw_data)
-except PydanticValidationError as e:
-self._convert_pydantic_errors(e)
-return False, self.errors
-
-# Then perform custom normative validations
-if not self.errors:
-self._validate_unique_ids()
-self._validate_normative_rules()
-
-return len(self.errors) == 0, self.errors
-
-def _reset_validation(self) -> None:
-"""
-Resets validator state for new validation.
-
-Clears all errors and loaded project elements to prepare for a new 
-validation run.
-"""
-self.errors = []
-self.project_data = None
-
-def _add_error(
-self, 
-category: str, 
-message: str, 
-location: str = ""
-) -> None:
-"""
-Adds an error to the validation error list.
-
-Args:
-category (str): The category of the error (e.g., "STRUCTURE").
-message (str): The detailed error message.
-location (str, optional): The location where the error occurred.
-Defaults to empty string.
-"""
-self.errors.append(ValidationError(category, message, location))
-
-def _convert_pydantic_errors(self, pydantic_error: PydanticValidationError) -> None:
-"""
-Converts Pydantic validation errors to our custom format.
-
-Maintains the same error categories and messages as the original
-implementation for consistency.
-
-Args:
-pydantic_error (PydanticValidationError): The Pydantic validation error.
-"""
-for error in pydantic_error.errors():
-location_parts = []
-category = "STRUCTURE"
-
-# Build location string from error path
-for part in error['loc']:
-if isinstance(part, int):
-  location_parts.append(f"[{part}]")
-else:
-  location_parts.append(str(part))
-
-location = ''.join(location_parts)
-
-# Determine category based on location
-if location.startswith('metadata'):
-category = "METADATA"
-elif location.startswith('milestones'):
-category = "MILESTONE"
-elif location.startswith('epics'):
-category = "EPIC"
-elif location.startswith('tasks'):
-category = "TASK"
-
-# Convert error types to our custom messages
-error_type = error['type']
-message = self._format_pydantic_error_message(error_type, error)
-
-self._add_error(category, message, location)
-
-def _format_pydantic_error_message(self, error_type: str, error: Dict[str, Any]) -> str:
-"""
-Formats Pydantic error messages to match original implementation style.
-
-Args:
-error_type (str): The type of Pydantic error.
-error (Dict[str, Any]): The error details.
-
-Returns:
-str: Formatted error message.
-"""
-if error_type == 'missing':
-return f"Missing fields: {error['input']}"
-elif error_type == 'string_type':
-return f"Field '{error['loc'][-1]}' must be a string"
-elif error_type == 'int_type':
-return f"Field '{error['loc'][-1]}' must be an integer"
-elif error_type == 'greater_than':
-return f"{error['loc'][-1]} must be an integer > 0"
-elif error_type == 'greater_than_equal':
-return f"{error['loc'][-1]} must be an integer >= 0"
-elif error_type == 'literal_error':
-return f"Invalid configuration: '{error['input']}'"
-elif error_type == 'string_too_short':
-return f"ID must be a non-empty string"
-elif error_type == 'list_type':
-return "depends_on must be an array"
-else:
-return error.get('msg', 'Validation error')
-
-def _validate_unique_ids(self) -> None:
-"""
-Validates uniqueness of IDs across all project elements.
-
-Checks for duplicate IDs in milestones, epics, and tasks separately.
-"""
-if not self.project_data:
-return
-
-# Check milestone ID uniqueness
-milestone_ids = set()
-for i, milestone in enumerate(self.project_data.milestones):
-if milestone.id in milestone_ids:
-self._add_error(
-  "MILESTONE", 
-  f"Duplicate ID: '{milestone.id}'", 
-  f"milestones[{i}]"
-)
-milestone_ids.add(milestone.id)
-
-# Check epic ID uniqueness
-epic_ids = set()
-for i, epic in enumerate(self.project_data.epics):
-if epic.id in epic_ids:
-self._add_error(
-  "EPIC", 
-  f"Duplicate ID: '{epic.id}'", 
-  f"epics[{i}]"
-)
-epic_ids.add(epic.id)
-
-# Check task ID uniqueness
-task_ids = set()
-for i, task in enumerate(self.project_data.tasks):
-if task.id in task_ids:
-self._add_error(
-  "TASK", 
-  f"Duplicate ID: '{task.id}'", 
-  f"tasks[{i}]"
-)
-task_ids.add(task.id)
-
-def _validate_normative_rules(self) -> None:
-"""
-Validates the normative rules of the protocol.
-
-Performs cross-reference validation between project elements to ensure
-tutelle rules, dependency consistency, and temporal agnosticism are
-respected.
-"""
-if not self.project_data:
-return
-
-self._validate_tutelle_rules()
-self._validate_dependencies()
-self._validate_no_absolute_dates()
-
-def _validate_tutelle_rules(self) -> None:
-"""
-Validates the tutelle (guardianship) rule.
-
-Ensures that all epics reference existing milestones as parents and
-all tasks reference existing milestones or epics as parents.
-"""
-if not self.project_data:
-return
-
-# Build lookup sets
-milestone_ids = {m.id for m in self.project_data.milestones}
-epic_ids = {e.id for e in self.project_data.epics}
-
-# Epic parent_id validation
-for epic in self.project_data.epics:
-if epic.parent_id not in milestone_ids:
-self._add_error(
-  "TUTELLE", 
-  f"Epic '{epic.id}' references non-existent "
-  f"milestone: '{epic.parent_id}'"
-)
-
-# Task parent_link validation
-valid_parents = milestone_ids | epic_ids
-for task in self.project_data.tasks:
-if task.parent_link not in valid_parents:
-self._add_error(
-  "TUTELLE", 
-  f"Task '{task.id}' references non-existent "
-  f"parent: '{task.parent_link}'"
-)
-
-def _validate_dependencies(self) -> None:
-"""
-Validates consistency of task dependencies.
-
-Ensures that all task dependencies reference existing tasks and
-prevents obvious circular dependencies (self-references).
-"""
-if not self.project_data:
-return
-
-task_ids = {t.id for t in self.project_data.tasks}
-
-for task in self.project_data.tasks:
-for dep_id in task.depends_on:
-if dep_id not in task_ids:
-  self._add_error(
-      "DEPENDENCY", 
-      f"Task '{task.id}' depends on non-existent "
-      f"task: '{dep_id}'"
-  )
-
-# Cycle check (simplified)
-if dep_id == task.id:
-  self._add_error(
-      "DEPENDENCY", 
-      f"Task '{task.id}' cannot depend on itself"
-  )
-
-def _validate_no_absolute_dates(self) -> None:
-"""
-Verifies absence of absolute dates in data.
-
-The protocol enforces temporal agnosticism, meaning no absolute dates
-should be present in the project data. This method can be extended
-to detect specific date patterns if needed.
-"""
-# This validation can be extended according to specific needs
-# The protocol enforces temporal agnosticism
-pass
-
-
-def validate_project_file(file_path: str | Path) -> None:
-"""
-Utility function to validate a project file and display results.
-
-This is a convenience function that creates a validator, runs validation
-on the specified file, and prints a formatted report of the results.
-
-Args:
-file_path (str | Path): Path to the JSON file to validate.
-
-Example:
->>> validate_project_file("my_project.json")
-Validating file: my_project.json
-Result: ✅ COMPLIANT
-No errors detected.
-"""
-validator = ProjectValidator()
-is_valid, errors = validator.validate_project_file(file_path)
-
-print(f"Validating file: {file_path}")
-print(f"Result: {'✅ COMPLIANT' if is_valid else '❌ NON-COMPLIANT'}")
-
-if errors:
-print(f"\nNumber of errors detected: {len(errors)}")
-for error in errors:
-print(f"  {error}")
-else:
-print("\nNo errors detected.")
+
+def _suggest_from_pydantic_error(err: dict[str, Any]) -> str | None:
+    """Generate a best-effort suggestion based on a Pydantic error entry."""
+    err_type = err.get("type", "")
+    loc = err.get("loc", ())
+    last = loc[-1] if loc else None
+
+    if err_type == "missing" and isinstance(last, str):
+        return f"Add the required field '{last}' as defined by the protocol."
+    if err_type == "literal_error":
+        if last == "version_protocole":
+            return "Set 'metadata.version_protocole' to exactly 'SPEC-1.0.0'."
+        return "Set the value to one of the allowed literals defined by the protocol."
+    if err_type in {"extra_forbidden"}:
+        return "Remove the unexpected field (the protocol schema is strict)."
+    if "int" in err_type or "float" in err_type:
+        return "Fix the value type to match the protocol (numeric field expected)."
+    return None
+
+
+def _parse_with_pydantic(data: Any) -> tuple[Project | None, list[ValidationIssue]]:
+    """Parse and validate the project structurally with Pydantic.
+
+    Args:
+        data: Raw parsed JSON.
+
+    Returns:
+        A tuple (project_or_none, structural_issues).
+    """
+    try:
+        project = Project.model_validate(data)
+        return project, []
+    except ValidationError as exc:
+        issues: list[ValidationIssue] = []
+        for err in exc.errors():
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.STRUCTURAL,
+                    location=_loc_to_json_path(err.get("loc", ())),
+                    message=str(err.get("msg", "Invalid value.")),
+                    suggestion=_suggest_from_pydantic_error(err),
+                )
+            )
+        return None, issues
+
+
+def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
+    """Check global uniqueness of IDs across milestones, epics and tasks."""
+    occurrences: dict[str, list[str]] = {}
+
+    for i, m in enumerate(project.milestones):
+        occurrences.setdefault(m.id, []).append(f"$.milestones[{i}].id")
+    for i, e in enumerate(project.epics):
+        occurrences.setdefault(e.id, []).append(f"$.epics[{i}].id")
+    for i, t in enumerate(project.tasks):
+        occurrences.setdefault(t.id, []).append(f"$.tasks[{i}].id")
+
+    issues: list[ValidationIssue] = []
+    for obj_id, locs in occurrences.items():
+        if len(locs) <= 1:
+            continue
+        locs_str = ", ".join(locs)
+        for loc in locs:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.UNIQUENESS,
+                    location=loc,
+                    message=(
+                        f"Duplicate ID '{obj_id}' detected. IDs must be globally unique. "
+                        f"Occurrences: {locs_str}."
+                    ),
+                    suggestion="Rename IDs so each milestone/epic/task ID is unique.",
+                )
+            )
+    return issues
+
+
+def _check_references(project: Project) -> list[ValidationIssue]:
+    """Check referential integrity for parent links and dependencies."""
+    milestone_ids = {m.id for m in project.milestones}
+    epic_ids = {e.id for e in project.epics}
+    task_ids = {t.id for t in project.tasks}
+
+    issues: list[ValidationIssue] = []
+
+    for i, e in enumerate(project.epics):
+        if e.parent_id not in milestone_ids:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.REFERENTIAL,
+                    location=f"$.epics[{i}].parent_id",
+                    message=(
+                        f"Epic parent_id '{e.parent_id}' does not reference an "
+                        "existing milestone."
+                    ),
+                    suggestion="Set 'parent_id' to an existing milestone ID.",
+                )
+            )
+
+    for i, t in enumerate(project.tasks):
+        parent_is_milestone = t.parent_link in milestone_ids
+        parent_is_epic = t.parent_link in epic_ids
+
+        if not (parent_is_milestone or parent_is_epic):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.REFERENTIAL,
+                    location=f"$.tasks[{i}].parent_link",
+                    message=(
+                        f"Task parent_link '{t.parent_link}' does not reference an "
+                        "existing milestone or epic."
+                    ),
+                    suggestion="Set 'parent_link' to an existing milestone ID or epic ID.",
+                )
+            )
+
+        if t.configuration == "Orpheline" and not parent_is_milestone:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.PROTOCOL_RULE,
+                    location=f"$.tasks[{i}].parent_link",
+                    message=(
+                        "Task configuration is 'Orpheline' but parent_link does not "
+                        "reference a milestone."
+                    ),
+                    suggestion=(
+                        "Either set parent_link to a milestone ID, or change the "
+                        "task configuration."
+                    ),
+                )
+            )
+
+        if t.configuration == "Membre" and not parent_is_epic:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.PROTOCOL_RULE,
+                    location=f"$.tasks[{i}].parent_link",
+                    message=(
+                        "Task configuration is 'Membre' but parent_link does not "
+                        "reference an epic."
+                    ),
+                    suggestion=(
+                        "Either set parent_link to an epic ID, or change the task "
+                        "configuration."
+                    ),
+                )
+            )
+
+        for j, dep in enumerate(t.depends_on):
+            if dep not in task_ids:
+                issues.append(
+                    ValidationIssue(
+                        severity=Severity.ERROR,
+                        issue_type=IssueType.REFERENTIAL,
+                        location=f"$.tasks[{i}].depends_on[{j}]",
+                        message=(
+                            f"Dependency '{dep}' does not reference an existing task ID."
+                        ),
+                        suggestion="Replace it with an existing task ID or remove it.",
+                    )
+                )
+
+    return issues
+
+
+def _resolve_task_milestone_id(project: Project) -> dict[str, str]:
+    """Resolve each task's milestone ID using parent_link and epic.parent_id.
+
+    Returns:
+        Mapping: task_id -> milestone_id
+
+    Notes:
+        If a task parent_link points to a milestone, that is the milestone.
+        If it points to an epic, milestone is epic.parent_id.
+        If resolution is impossible, the task is omitted from the mapping.
+        (Referential errors are handled elsewhere.)
+    """
+    epic_to_milestone = {e.id: e.parent_id for e in project.epics}
+    milestone_ids = {m.id for m in project.milestones}
+
+    mapping: dict[str, str] = {}
+    for t in project.tasks:
+        if t.parent_link in milestone_ids:
+            mapping[t.id] = t.parent_link
+        elif t.parent_link in epic_to_milestone:
+            mapping[t.id] = epic_to_milestone[t.parent_link]
+    return mapping
+
+
+def _check_gate_milestone_empty(project: Project) -> list[ValidationIssue]:
+    """Warn if a Gate milestone contains epics and/or tasks."""
+    milestone_by_id = {m.id: m for m in project.milestones}
+    epic_parent_map: dict[str, list[int]] = {}
+    for i, e in enumerate(project.epics):
+        epic_parent_map.setdefault(e.parent_id, []).append(i)
+
+    task_to_milestone = _resolve_task_milestone_id(project)
+    tasks_by_milestone: dict[str, list[int]] = {}
+    for i, t in enumerate(project.tasks):
+        ms_id = task_to_milestone.get(t.id)
+        if ms_id is not None:
+            tasks_by_milestone.setdefault(ms_id, []).append(i)
+
+    issues: list[ValidationIssue] = []
+    for i, m in enumerate(project.milestones):
+        if m.configuration != "Gate":
+            continue
+
+        epic_count = len(epic_parent_map.get(m.id, []))
+        task_count = len(tasks_by_milestone.get(m.id, []))
+        if epic_count == 0 and task_count == 0:
+            continue
+
+        issues.append(
+            ValidationIssue(
+                severity=Severity.WARNING,
+                issue_type=IssueType.RECOMMENDATION,
+                location=f"$.milestones[{i}].configuration",
+                message=(
+                    "Milestone configuration is 'Gate' but it contains content "
+                    f"(epics: {epic_count}, tasks: {task_count}). A Gate milestone is "
+                    "expected to be empty."
+                ),
+                suggestion=(
+                    "Move epics/tasks to an 'Actif' milestone, or change the milestone "
+                    "configuration to 'Actif'."
+                ),
+            )
+        )
+
+    return issues
+
+
+def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]:
+    """Warn if a task depends on another task in a later milestone.
+
+    Protocol statement: dependencies should ideally belong to the same milestone
+    or an earlier milestone (warning if not).
+    """
+    milestone_index = {m.id: i for i, m in enumerate(project.milestones)}
+    task_to_milestone = _resolve_task_milestone_id(project)
+
+    task_to_milestone_index: dict[str, int] = {}
+    for task_id, ms_id in task_to_milestone.items():
+        if ms_id in milestone_index:
+            task_to_milestone_index[task_id] = milestone_index[ms_id]
+
+    issues: list[ValidationIssue] = []
+    task_by_id = {t.id: (idx, t) for idx, t in enumerate(project.tasks)}
+
+    for i, t in enumerate(project.tasks):
+        cur_idx = task_to_milestone_index.get(t.id)
+        if cur_idx is None:
+            continue
+
+        for j, dep_id in enumerate(t.depends_on):
+            dep_idx = task_to_milestone_index.get(dep_id)
+            if dep_idx is None:
+                continue
+            if dep_idx > cur_idx:
+                issues.append(
+                    ValidationIssue(
+                        severity=Severity.WARNING,
+                        issue_type=IssueType.RECOMMENDATION,
+                        location=f"$.tasks[{i}].depends_on[{j}]",
+                        message=(
+                            f"Task depends on '{dep_id}', which belongs to a later "
+                            "milestone. Dependencies should ideally be in the same or an "
+                            "earlier milestone."
+                        ),
+                        suggestion=(
+                            "Move the dependent task earlier, or adjust milestone ordering, "
+                            "or revisit dependencies."
+                        ),
+                    )
+                )
+
+    return issues
+
+
+def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
+    """Warn if IDs do not follow the recommended prefix conventions."""
+    issues: list[ValidationIssue] = []
+
+    for i, m in enumerate(project.milestones):
+        if not m.id.startswith("M-"):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=f"$.milestones[{i}].id",
+                    message=(
+                        "Milestone ID does not follow the recommended prefix convention "
+                        "('M-')."
+                    ),
+                    suggestion="Consider using IDs like 'M-01', 'M-02', etc.",
+                )
+            )
+
+    for i, e in enumerate(project.epics):
+        if not e.id.startswith("E-"):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=f"$.epics[{i}].id",
+                    message=(
+                        "Epic ID does not follow the recommended prefix convention ('E-')."
+                    ),
+                    suggestion="Consider using IDs like 'E-01', 'E-02', etc.",
+                )
+            )
+
+    for i, t in enumerate(project.tasks):
+        if not t.id.startswith("T-"):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=f"$.tasks[{i}].id",
+                    message=(
+                        "Task ID does not follow the recommended prefix convention ('T-')."
+                    ),
+                    suggestion="Consider using IDs like 'T-01', 'T-02', etc.",
+                )
+            )
+
+    return issues
+
+
+def _check_missing_descriptions(project: Project) -> list[ValidationIssue]:
+    """Warn when description is missing or null, as required by the protocol."""
+    issues: list[ValidationIssue] = []
+
+    def warn_if_missing(value: str | None, location: str) -> None:
+        if value is None:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=location,
+                    message="Consider adding a description to improve project clarity.",
+                    suggestion="Provide a non-null 'description' string.",
+                )
+            )
+
+    warn_if_missing(project.metadata.description, "$.metadata.description")
+
+    for i, m in enumerate(project.milestones):
+        warn_if_missing(m.description, f"$.milestones[{i}].description")
+    for i, e in enumerate(project.epics):
+        warn_if_missing(e.description, f"$.epics[{i}].description")
+    for i, t in enumerate(project.tasks):
+        warn_if_missing(t.description, f"$.tasks[{i}].description")
+
+    return issues
+
+
+def validate_project_data(data: Any) -> ValidationReport:
+    """Validate a parsed JSON object against the protocol.
+
+    Args:
+        data: Parsed JSON content (typically a dict).
+
+    Returns:
+        ValidationReport containing all detected issues.
+    """
+    project, issues = _parse_with_pydantic(data)
+    if project is None:
+        return ValidationReport(issues=issues)
+
+    issues.extend(_check_global_id_uniqueness(project))
+    issues.extend(_check_references(project))
+    issues.extend(_check_gate_milestone_empty(project))
+    issues.extend(_check_dependency_milestone_order(project))
+    issues.extend(_check_id_prefix_recommendations(project))
+    issues.extend(_check_missing_descriptions(project))
+
+    return ValidationReport(issues=issues)
+
+
+def _print_report(report: ValidationReport) -> None:
+    """Print a human-readable validation report to stdout."""
+    if not report.issues:
+        print("No issues detected. Project is valid.")
+        return
+
+    print("Validation report:")
+    for issue in report.issues:
+        print(
+            f"- [{issue.severity.value.upper()}] "
+            f"({issue.issue_type.value}) {issue.location}: {issue.message}"
+        )
+        if issue.suggestion:
+            print(f"  Suggestion: {issue.suggestion}")
+
+    if report.has_errors():
+        print("\nResult: INVALID (blocking errors detected).")
+    else:
+        print("\nResult: VALID (warnings detected, but no blocking errors).")
+
+
+def validate_project_file(file_path: str | Path) -> bool:
+    """Validate a JSON file against the protocol and print the report.
+
+    Args:
+        file_path: Path to the JSON file.
+
+    Returns:
+        True if valid (no blocking errors), False otherwise.
+    """
+    path = Path(file_path)
+
+    try:
+        data = _read_json_file(path)
+    except OSError as exc:
+        report = ValidationReport(
+            issues=[
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.STRUCTURAL,
+                    location="$",
+                    message=f"Cannot read file: {exc}.",
+                    suggestion="Check the file path and permissions.",
+                )
+            ]
+        )
+        _print_report(report)
+        return False
+    except json.JSONDecodeError as exc:
+        report = ValidationReport(
+            issues=[
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.STRUCTURAL,
+                    location="$",
+                    message=f"Invalid JSON: {exc}.",
+                    suggestion="Fix JSON syntax (JSON does not support comments).",
+                )
+            ]
+        )
+        _print_report(report)
+        return False
+
+    report = validate_project_data(data)
+    _print_report(report)
+    return not report.has_errors()
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """Create the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Validate a project JSON file against SPEC-1.0.0."
+    )
+    parser.add_argument("json_file", help="Path to the JSON file to validate.")
+    return parser
+
+
+def main() -> None:
+    """CLI entry point."""
+    parser = _build_arg_parser()
+    args = parser.parse_args()
+    is_valid = validate_project_file(args.json_file)
+    sys.exit(0 if is_valid else 1)
 
 
 if __name__ == "__main__":
-import sys
-
-if len(sys.argv) != 2:
-print("Usage: python validator.py <path_to_file.json>")
-sys.exit(1)
-
-validate_project_file(sys.argv[1])
+    main()
