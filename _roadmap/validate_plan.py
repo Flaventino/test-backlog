@@ -658,6 +658,7 @@ def validate_project_file(file_path: str | Path) -> bool:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
    """Create the CLI argument parser."""
+        # test
    summary = "Validate a project JSON file against SPEC-1.0.0."
    parser = argparse.ArgumentParser(description=summary)
    parser.add_argument("plan", help="Path to the JSON file to validate.")
