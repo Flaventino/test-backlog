@@ -22,8 +22,8 @@ jobs:
       - name: Setup UV
         uses: astral-sh/setup-uv@v3
 
-      - name: Install Python runtime (3.14.x)
-        run: uv add "python@3.14.*"
+      - name: Install Python runtime (3.14)
+        run: uv python install 3.14
 
       - name: Install Pydantic (v2.12.x)
         run: uv add "pydantic@2.12.*"
