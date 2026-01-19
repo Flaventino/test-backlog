@@ -28,7 +28,6 @@ Requirements:
 """
 
 
-
 # ///   I M P O R T S   ///
 import argparse
 import json
@@ -43,7 +42,6 @@ from pydantic import ValidationError, model_validator
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 
 from __future__ import annotations
-################################################################################
 
 
 # ///   C L A S S E S   ///
@@ -165,9 +163,9 @@ class Project(BaseModel):
     tasks: list[Task]
 
 
-
-
 # ///   F U N C T I O N S   ///
+
+# === BUSINESS LOGIC ===
 def _loc_to_json_path(loc: Iterable[Any]) -> str:
     """Convert a Pydantic error location to a JSONPath-like string.
 
@@ -656,21 +654,35 @@ def validate_project_file(file_path: str | Path) -> bool:
     return not report.has_errors()
 
 
+# === ENTRY POINT ===
+
+# --- Command-line interface
 def _build_arg_parser() -> argparse.ArgumentParser:
-   """Create the CLI argument parser."""
-    # test
-   summary = "Validate a project JSON file against SPEC-1.0.0."
-   parser = argparse.ArgumentParser(description=summary)
-   parser.add_argument("plan", help="Path to the JSON file to validate.")
-   return parser
+    """Create the CLI argument parser."""
+
+    # --- CLI arguments descriptions
+    summary = "Validate a project JSON file against SPEC-1.0.0."
+    plan_help = "Path to the JSON file to validate."
+    marker_help = "Path to a marker file to create on success."
+
+    # --- Argument parser configuration
+    parser = argparse.ArgumentParser(description=summary)
+    parser.add_argument("plan", help=plan_help)
+    parser.add_argument("marker", help=marker_help)
+    return parser
 
 
+# --- Main execution
 def main() -> None:
     """CLI entry point."""
     parser = _build_arg_parser()
     args = parser.parse_args()
-    is_valid = validate_project_file(args.json_file)
-    sys.exit(0 if is_valid else 1)
+    # is_valid = validate_project_file(args.json_file)
+    # sys.exit(0 if is_valid else 1)
+    print(type(args))
+    print(type(args.plan))
+    print(args.plan)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
