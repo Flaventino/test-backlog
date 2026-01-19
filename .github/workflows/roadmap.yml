@@ -26,7 +26,7 @@ jobs:
         run: uv python install 3.14
 
       - name: Install Pydantic (v2.12.x)
-        run: uv add "pydantic@2.12.*"
+        run: uv add 'pydantic@2.12.*'
 
       - name: Validate Project Plan
         id: validate
