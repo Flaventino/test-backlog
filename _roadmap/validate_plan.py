@@ -29,6 +29,8 @@ Requirements:
 
 
 # ///   I M P O R T S   ///
+from __future__ import annotations
+
 import argparse
 import json
 import sys
@@ -40,8 +42,6 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError, model_validator
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
-
-from __future__ import annotations
 
 
 # ///   C L A S S E S   ///
