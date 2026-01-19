@@ -22,6 +22,9 @@ jobs:
       - name: Setup UV
         uses: astral-sh/setup-uv@v3
 
+      - name: Install Pydantic v2
+        uses: astral-sh/setup-uv@v3
+
       - name: Validate Project Plan
         id: validate
         run: uv run "$PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
