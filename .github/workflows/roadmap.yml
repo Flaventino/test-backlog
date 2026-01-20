@@ -34,7 +34,7 @@ jobs:
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
-              $PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
+              "$PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
 
       # - name: Deploy GitHub Issues
       #   if: steps.validate.outputs.run_deploy == 'true'
