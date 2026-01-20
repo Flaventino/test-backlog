@@ -24,12 +24,6 @@ jobs:
         with:
           enable-cache: true
 
-      # - name: Install Python runtime (3.14)
-      #   run: uv python install 3.14
-
-      # - name: Install Pydantic (v2.12.x)
-      #   run: uv add 'pydantic>=2.12,<2.13'
-
       - name: Validate Project Plan
         id: validate
         run: |
