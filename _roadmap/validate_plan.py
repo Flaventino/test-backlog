@@ -679,9 +679,9 @@ def main() -> None:
     args = parser.parse_args()
     # is_valid = validate_project_file(args.json_file)
     # sys.exit(0 if is_valid else 1)
-    print(type(args))
-    print(type(args.plan))
-    print(args.plan)
+    print(f'{type(args) = }')
+    print(f'{type(args.plan) = })
+    print(f'--plan: {args.plan = }')
     sys.exit(0)
 
 
