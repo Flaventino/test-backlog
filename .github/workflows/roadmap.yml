@@ -22,15 +22,19 @@ jobs:
       - name: Setup UV
         uses: astral-sh/setup-uv@v3
 
-      - name: Install Python runtime (3.14)
-        run: uv python install 3.14
+      # - name: Install Python runtime (3.14)
+      #   run: uv python install 3.14
 
-      - name: Install Pydantic (v2.12.x)
-        run: uv add 'pydantic>=2.12,<2.13'
+      # - name: Install Pydantic (v2.12.x)
+      #   run: uv add 'pydantic>=2.12,<2.13'
 
       - name: Validate Project Plan
         id: validate
-        run: uv run "$PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
+        run: uv run \
+              --no-project \
+              --python 3.14 \
+              --with "pydantic>=2.12,<2.13 \
+              ""$PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
 
       # - name: Deploy GitHub Issues
       #   if: steps.validate.outputs.run_deploy == 'true'
