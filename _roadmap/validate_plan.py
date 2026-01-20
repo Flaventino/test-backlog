@@ -680,7 +680,7 @@ def main() -> None:
     # is_valid = validate_project_file(args.json_file)
     # sys.exit(0 if is_valid else 1)
     print(f'{type(args) = }')
-    print(f'{type(args.plan) = })
+    print(f'{type(args.plan) = }')
     print(f'--plan: {args.plan = }')
     sys.exit(0)
 
