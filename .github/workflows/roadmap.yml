@@ -30,7 +30,8 @@ jobs:
 
       - name: Validate Project Plan
         id: validate
-        run: uv run \
+        run: |
+          uv run \
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
