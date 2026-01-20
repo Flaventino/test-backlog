@@ -667,8 +667,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
     # --- Argument parser configuration
     parser = argparse.ArgumentParser(description=summary)
-    parser.add_argument("plan", help=plan_help, required=True)
-    parser.add_argument("marker", help=marker_help, required=True)
+    parser.add_argument("--plan", help=plan_help, required=True)
+    parser.add_argument("--marker", help=marker_help, required=True)
     return parser
 
 
