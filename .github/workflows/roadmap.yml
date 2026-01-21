@@ -1,40 +1,59 @@
 name: Deploy Project roadmap
 on:
   workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment despite JSON file validation failure'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   validate-and-deploy-plan:
     name: Validate & Deploy Roadmap To GitHub Issues
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       issues: write
     env:
       PLAN: '_roadmap/roadmap_plan.json'
       LOCK_FILE: '_roadmap/.roadmap_activated'
       PLAN_CHECKER: '_roadmap/validate_plan.py'
       PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
+      FORCE_DEPLOYMENT: ${{ github.event.inputs.force_deploy }}
       
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Check Marker File Existence
+        id: marker
+        run: |
+          if [ -f "$LOCK_FILE" ]; then
+            echo "Deployment already performed — skipping"
+            echo "already_deployed=true" >> $GITHUB_OUTPUT
+          else
+            echo "already_deployed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup UV
+        if: steps.marker.outputs.already_deployed == 'false'
         uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
 
       - name: Validate Project Plan
         id: validate
+        if: steps.marker.outputs.already_deployed == 'false'
         run: |
           uv run \
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
-              "$PLAN_CHECKER" --plan "$PLAN" --marker "$LOCK_FILE"
+              "$PLAN_CHECKER" --plan "$PLAN"
 
-      # - name: Deploy GitHub Issues
-      #   if: steps.validate.outputs.run_deploy == 'true'
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_FILE"
+      - name: Deploy GitHub Issues
+        if: |
+          steps.validate.outcome == 'success' ||
+          (steps.validate.outcome == 'failure' && inputs.force_deploy == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_FILE"
