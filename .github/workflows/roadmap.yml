@@ -20,7 +20,7 @@ jobs:
       LOCK_FILE: '_roadmap/.roadmap_activated'
       PLAN_CHECKER: '_roadmap/validate_plan.py'
       PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
-      FORCE_DEPLOYMENT: ${{ github.event.inputs.force_deploy }}
+      FORCE_DEPLOYMENT: ${{ github.event.inputs.force_deploy == 'true' }}
       
     steps:
       - name: Checkout Repository
@@ -53,7 +53,7 @@ jobs:
       - name: Deploy GitHub Issues
         if: |
           steps.validate.outcome == 'success' ||
-          (steps.validate.outcome == 'failure' && inputs.force_deploy == 'true')
+          (steps.validate.outcome == 'failure' && github.event.inputs.force_deploy == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_FILE"
