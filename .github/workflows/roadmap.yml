@@ -9,7 +9,7 @@ on:
 
 jobs:
   validate-and-deploy-plan:
-    name: Validate & Deploy Roadmap To GitHub Issues
+    name: Validate & Apply Roadmap To GitHub Issues
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -49,8 +49,7 @@ jobs:
       #         --with "pydantic>=2.12,<2.13" \
       #         "$PLAN_CHECKER" --plan "$PLAN"
         run: exit 1
-        continue-on-error: true
-        # ${{ github.event.inputs.force_apply }}
+        continue-on-error: ${{ github.event.inputs.force_apply == 'true'}}
 
       - name: Deploy GitHub Issues
       #   if: |
