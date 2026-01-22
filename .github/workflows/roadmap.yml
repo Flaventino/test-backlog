@@ -33,6 +33,7 @@ jobs:
             echo "already_deployed=true" >> $GITHUB_OUTPUT
           else
             echo "already_deployed=false" >> $GITHUB_OUTPUT
+            echo "skipping/skipping/skipping/skipping/skipping"
           fi
 
       # - name: Setup UV
