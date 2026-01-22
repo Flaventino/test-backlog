@@ -41,7 +41,7 @@ jobs:
 
       - name: Validate Project Plan
         id: validate
-        if: steps.marker.outputs.already_deployed == 'false'
+        # if: steps.marker.outputs.already_deployed == 'false'
       #   run: |
       #     uv run \
       #         --no-project \
