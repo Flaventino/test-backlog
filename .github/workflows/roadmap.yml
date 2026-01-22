@@ -49,7 +49,7 @@ jobs:
       #         --with "pydantic>=2.12,<2.13" \
       #         "$PLAN_CHECKER" --plan "$PLAN"
         run: exit 1
-        continue-on-error: ${{ github.event.inputs.force_apply == 'true'}}
+        continue-on-error: ${{ github.event.inputs.force_apply == 'false'}}
 
       - name: Deploy GitHub Issues
       #   if: |
