@@ -1,4 +1,4 @@
-name: Deploy Project roadmap
+name: Apply Project Roadmap
 on:
   workflow_dispatch:
     inputs:
