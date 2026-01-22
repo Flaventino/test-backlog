@@ -1,0 +1,19 @@
+name: demo-summary-warning
+
+on:
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step avec warning + résumé
+        run: |
+          echo "::warning::Une situation non bloquante a été détectée"
+          {
+            echo "## ⚠️ Avertissement"
+            echo ""
+            echo "Une situation non bloquante a été détectée."
+            echo ""
+            echo "L'exécution a continué normalement."
+          } >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,17 @@
+name: demo-forced-success
+
+on:
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step qui échoue mais est ignoré
+        run: |
+          echo "::warning::Échec ignoré volontairement"
+          exit 1
+        continue-on-error: true
+
+      - name: Step suivant exécuté
+        run: echo "Suite du traitement"

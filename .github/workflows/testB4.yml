@@ -1,0 +1,26 @@
+name: demo-summary-success-with-warning
+
+on:
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step non bloquant
+        run: |
+          echo "::warning::Un contrôle a échoué mais a été ignoré"
+          exit 1
+        continue-on-error: true
+
+      - name: Résumé décisionnel
+        if: always()
+        run: |
+          {
+            echo "## ⚠️ Décision consciente"
+            echo ""
+            echo "- Un contrôle a échoué."
+            echo "- L'exécution a été **volontairement poursuivie**."
+            echo ""
+            echo "**Statut final : succès avec avertissement.**"
+          } >> $GITHUB_STEP_SUMMARY
