@@ -1,9 +1,4 @@
 name: Deploy Project roadmap
-env:
-  PLAN: '_roadmap/roadmap_plan.json'
-  LOCK_FILE: '_roadmap/.roadmap_activated'
-  PLAN_CHECKER: '_roadmap/validate_plan.py'
-  PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
 on:
   workflow_dispatch:
     inputs:
@@ -19,11 +14,11 @@ jobs:
     permissions:
       contents: write
       issues: write
-    # env:
-    #   PLAN: '_roadmap/roadmap_plan.json'
-    #   LOCK_FILE: '_roadmap/.roadmap_activated'
-    #   PLAN_CHECKER: '_roadmap/validate_plan.py'
-    #   PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
+    env:
+      PLAN: '_roadmap/roadmap_plan.json'
+      LOCK_FILE: '_roadmap/.roadmap_activated'
+      PLAN_CHECKER: '_roadmap/validate_plan.py'
+      PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
       # FORCE_DEPLOYMENT: ${{ github.event.inputs.force_deploy == 'true' }}
       
     steps:
@@ -34,7 +29,7 @@ jobs:
         id: marker
         run: |
           if [ -f "$LOCK_FILE" ]; then
-            # echo "Deployment already performed — skipping"
+            echo "Deployment already performed — skipping"
             echo "already_deployed=true" >> $GITHUB_OUTPUT
           else
             echo "already_deployed=false" >> $GITHUB_OUTPUT
