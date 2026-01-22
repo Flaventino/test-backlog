@@ -1,0 +1,11 @@
+name: demo-success
+
+on:
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step OK
+        run: echo "Tout va bien"
