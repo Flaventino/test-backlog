@@ -1,4 +1,4 @@
-name: demo-success
+name: demo-warning-success
 
 on:
   workflow_dispatch:
@@ -7,5 +7,7 @@ jobs:
   demo:
     runs-on: ubuntu-latest
     steps:
-      - name: Step OK
-        run: echo "Tout va bien"
+      - name: Step avec warning
+        run: |
+          echo "::warning::Ceci est un avertissement"
+          echo "Le step réussit quand même"
