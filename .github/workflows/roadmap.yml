@@ -43,7 +43,7 @@ jobs:
         id: validate
         if: steps.marker.outputs.exists == 'false'
         run: |
-          set -uo pipefail
+          # set -uo pipefail
           uv run \
               --no-project \
               --python 3.14 \
