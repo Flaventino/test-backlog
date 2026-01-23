@@ -45,7 +45,7 @@ jobs:
         run: |
           set -uo pipefail
 
-          # Run validation & trap upstream status
+          # Suspend exit-on-error to trap upstream validation status
           set +e
           uv run \
               --no-project \
@@ -54,22 +54,22 @@ jobs:
               "$PLAN_CHECKER" --plan "$PLAN" | \
               tee report.txt
 
-          # Capture sécurisée
-          codes=("${PIPESTATUS[@]}")
+          # Capture upstream status & restore strict mode
+          status=${PIPESTATUS[0]}
           set -e
           
-          # Debug (Maintenant tu devrais voir 2 valeurs)
-          echo "Debug Array Size: ${#codes[@]}"
-          echo "Debug Values: ${codes[*]}"
+          # # Debug (Maintenant tu devrais voir 2 valeurs)
+          # echo "Debug Array Size: ${#codes[@]}"
+          # echo "Debug Values: ${codes[*]}"
 
 
           # status=("${PIPESTATUS[@]}")
-          # echo "Status: $status"
+          echo "Status: $status"
           # echo "debug array: ${PIPESTATUS[@]}"
           
           # Eval bypass condition (code 20 + force flag)
           [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
-          echo "Bypass: $bypass"
+
           # Assert step success criteria
           [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
 
