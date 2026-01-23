@@ -685,8 +685,8 @@ def main() -> None:
     print('///   A N A L Y S I S   R E P O R T   ///')
     for i in range(len(gaston)):
         print(f'{i}: {gaston[::-1][:i].upper()}')
-    gaston = 5/0
-    # sys.exit(0)
+    # gaston = 5/0
+    sys.exit(0)
 
 
 if __name__ == "__main__":
