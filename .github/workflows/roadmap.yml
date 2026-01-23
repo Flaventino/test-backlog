@@ -53,9 +53,19 @@ jobs:
               "$PLAN_CHECKER" --plan "$PLAN" \
               | tee report.txt || true
 
-          status=("${PIPESTATUS[@]}")
-          echo "Status: $status"
-          echo "debug array: ${PIPESTATUS[@]}"
+          codes=("${PIPESTATUS[@]}")
+          # 2. Maintenant on peut jouer avec notre copie stable
+          status=${codes[0]}
+          
+          echo "--- DEBUG INFO ---"
+          echo "Full Pipeline Codes: ${codes[*]}"
+          echo "UV Exit Code (status): $status"
+          echo "Tee Exit Code: ${codes[1]}"
+
+
+          # status=("${PIPESTATUS[@]}")
+          # echo "Status: $status"
+          # echo "debug array: ${PIPESTATUS[@]}"
           
           # Eval bypass condition (code 20 + force flag)
           [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
