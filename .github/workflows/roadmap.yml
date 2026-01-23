@@ -28,6 +28,7 @@ jobs:
       - name: Check Marker File Existence
         id: marker
         run: |
+          set +e
           python toto.py
           echo "Après l'erreur"  # S'exécute?
           # if [ -f "$LOCK_FILE" ]; then
