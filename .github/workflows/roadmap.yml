@@ -39,15 +39,15 @@ jobs:
         if: steps.marker.outputs.exists == 'false'
         uses: astral-sh/setup-uv@v3
 
-      # - name: Validate Project Plan
-      #   id: validate
-      #   # if: steps.marker.outputs.already_deployed == 'false'
-      # #   run: |
-      # #     uv run \
-      # #         --no-project \
-      # #         --python 3.14 \
-      # #         --with "pydantic>=2.12,<2.13" \
-      # #         "$PLAN_CHECKER" --plan "$PLAN"
+      - name: Validate Project Plan
+        id: validate
+        if: steps.marker.outputs.exists == 'false'
+        run: |
+          uv run \
+              --no-project \
+              --python 3.14 \
+              --with "pydantic>=2.12,<2.13" \
+              "$PLAN_CHECKER" --plan "$PLAN"
       #   run: exit 1
       #   continue-on-error: ${{ github.event.inputs.force_apply == 'false'}}
 
