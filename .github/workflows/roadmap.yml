@@ -60,7 +60,8 @@ jobs:
           echo "--- DEBUG INFO ---"
           echo "Full Pipeline Codes: ${codes[*]}"
           echo "UV Exit Code (status): $status"
-          echo "Tee Exit Code: ${codes[1]}"
+          echo "exit code before Tee Exit Code: ${codes[0]}"
+          echo "Tee Exit Code: ${codes[0]}"
 
 
           # status=("${PIPESTATUS[@]}")
