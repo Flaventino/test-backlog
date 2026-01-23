@@ -681,7 +681,7 @@ def main() -> None:
     # print(f'{type(args.plan) = }')
     # print(f'--plan: {args.plan = }')
     # sys.exit(0)
-    gaston = "gaston"
+    gaston = "G A S T O N   L A   M A G N I F I Q U E"
     print('///   A N A L Y S I S   R E P O R T   ///')
     for i in range(len(gaston)):
         print(f'{i}: {gaston[::-1][:i].upper()}')
