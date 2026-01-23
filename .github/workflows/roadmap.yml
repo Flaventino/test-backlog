@@ -16,11 +16,11 @@ jobs:
       issues: write
     env:
       PLAN: '_roadmap/roadmap_plan.json'
+      FORCE: ${{ inputs.force_apply }}
       PLAN_MARKER: '_roadmap/.plan_applied'
       PLAN_CHECKER: '_roadmap/validate_plan.py'
       PLAN_APPLIER: '_roadmap/apply_plan.py'
-      # FORCE_DEPLOYMENT: ${{ github.event.inputs.force_deploy == 'true' }}
-      
+      # github.event.
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -44,16 +44,22 @@ jobs:
         if: steps.marker.outputs.exists == 'false'
         run: |
           set -uo pipefail
+
+          # Run validation & trap upstream status
           uv run \
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
-              "$PLAN_CHECKER" --plan "$PLAN" | tee validation_report.txt || true
-          echo "$?"
-          echo "::set-output name=exitcode::${PIPESTATUS[0]}"
-      #   run: exit 1
-      #   continue-on-error: ${{ github.event.inputs.force_apply == 'false'}}
-      # set +e -o pipefail
+              "$PLAN_CHECKER" --plan "$PLAN" \
+              | tee report.txt || true
+
+          status=${PIPESTATUS[0]}
+          
+          # Eval bypass condition (code 20 + force flag)
+          [[ $status -eq 20 && "$FORCE" == "true" ]]; bypass=$?
+
+          # Assert success criteria
+          [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
 
       # - name: Deploy GitHub Issues
       # #   if: |
