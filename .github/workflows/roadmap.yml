@@ -53,15 +53,12 @@ jobs:
               "$PLAN_CHECKER" --plan "$PLAN" | \
               tee report.txt || true
 
+          # Capture sécurisée
           codes=("${PIPESTATUS[@]}")
-          # 2. Maintenant on peut jouer avec notre copie stable
-          status=${codes[0]}
           
-          echo "--- DEBUG INFO ---"
-          echo "Full Pipeline Codes: ${codes[*]}"
-          echo "UV Exit Code (status): $status"
-          echo "exit code before Tee Exit Code: ${codes[0]}"
-          echo "Tee Exit Code: ${codes[0]}"
+          # Debug (Maintenant tu devrais voir 2 valeurs)
+          echo "Debug Array Size: ${#codes[@]}"
+          echo "Debug Values: ${codes[*]}"
 
 
           # status=("${PIPESTATUS[@]}")
