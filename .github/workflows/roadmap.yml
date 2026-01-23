@@ -50,8 +50,7 @@ jobs:
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
-              "$PLAN_CHECKER" --plan "$PLAN" \
-              | tee report.txt || true
+              "$PLAN_CHECKER" --plan "$PLAN" | tee report.txt || true
 
           codes=("${PIPESTATUS[@]}")
           # 2. Maintenant on peut jouer avec notre copie stable
