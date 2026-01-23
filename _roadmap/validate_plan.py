@@ -684,7 +684,7 @@ def main() -> None:
     gaston = "gaston"
     print('///   A N A L Y S I S   R E P O R T   ///')
     for i in range(len(gaston)):
-        print(f'{i}: {gaston[:i].upper()}')
+        print(f'{i}: {gaston[::-1][:i].upper()}')
 
 
 if __name__ == "__main__":

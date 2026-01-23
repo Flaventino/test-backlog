@@ -47,7 +47,7 @@ jobs:
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
-              "$PLAN_CHECKER" --plan "$PLAN" | tee > $GITHUB_STEP_SUMMARY
+              "$PLAN_CHECKER" --plan "$PLAN" | tee >> $GITHUB_STEP_SUMMARY
       #   run: exit 1
       #   continue-on-error: ${{ github.event.inputs.force_apply == 'false'}}
 
