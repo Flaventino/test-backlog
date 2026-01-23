@@ -55,6 +55,7 @@ jobs:
 
           status=${PIPESTATUS[0]}
           echo "Status: $status"
+          echo "debug array: ${PIPESTATUS[@]}"
           
           # Eval bypass condition (code 20 + force flag)
           [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
