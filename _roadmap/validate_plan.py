@@ -663,12 +663,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     # --- CLI arguments descriptions
     summary = "Validate a project JSON file against SPEC-1.0.0."
     plan_help = "Path to the JSON file to validate."
-    marker_help = "Path to a marker file to create on success."
 
     # --- Argument parser configuration
     parser = argparse.ArgumentParser(description=summary)
     parser.add_argument("--plan", help=plan_help, required=True)
-    parser.add_argument("--marker", help=marker_help, required=True)
     return parser
 
 
@@ -679,10 +677,13 @@ def main() -> None:
     args = parser.parse_args()
     # is_valid = validate_project_file(args.json_file)
     # sys.exit(0 if is_valid else 1)
-    print(f'{type(args) = }')
-    print(f'{type(args.plan) = }')
-    print(f'--plan: {args.plan = }')
-    sys.exit(0)
+    # print(f'{type(args) = }')
+    # print(f'{type(args.plan) = }')
+    # print(f'--plan: {args.plan = }')
+    # sys.exit(0)
+    gaston = "gaston"
+    for i in range(len(gaston)):
+        print(f'{i}: {gaston[:i].upper()}')
 
 
 if __name__ == "__main__":
