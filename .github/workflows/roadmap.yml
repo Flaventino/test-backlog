@@ -54,6 +54,7 @@ jobs:
               | tee report.txt || true
 
           status=${PIPESTATUS[0]}
+          echo "Status: $status"
           
           # Eval bypass condition (code 20 + force flag)
           [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
