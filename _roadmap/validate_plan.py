@@ -11,16 +11,16 @@ Validation covers two inseparable dimensions:
 2) Minimal normative compliance (referential integrity, uniqueness, mandatory
    protocol rules, and specified warnings)
 
-Output:
-- A report in English listing all detected issues (errors and warnings), each
-  with:
+Core output (common to all usage modes):
+- A comprehensive set of validation issues (errors and warnings), each with:
   * Category (error/warning)
   * Location (JSON path)
-  * Clear description
+  * Clear description in English
   * Correction suggestion (when possible)
-- A boolean validity status:
-  * True  => no blocking errors
-  * False => at least one blocking error
+
+Mode-specific output:
+- CLI tool: Exit code 0 (success) or 20 (blocking errors detected)
+- Module: Boolean status True (success) or False (blocking errors detected)
 
 Requirements:
 - Python 3.11+

@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       force_apply:
-        description: 'Force deployment despite JSON file validation failure'
+        description: 'Ignore JSON file validation failures.'
         type: boolean
         default: false
 
@@ -16,9 +16,9 @@ jobs:
       issues: write
     env:
       PLAN: '_roadmap/roadmap_plan.json'
-      LOCK_FILE: '_roadmap/.roadmap_activated'
+      PLAN_MARKER: '_roadmap/.plan_applied'
       PLAN_CHECKER: '_roadmap/validate_plan.py'
-      PLAN_DEPLOYER: '_roadmap/deploy_plan.py'
+      PLAN_APPLIER: '_roadmap/apply_plan.py'
       # FORCE_DEPLOYMENT: ${{ github.event.inputs.force_deploy == 'true' }}
       
     steps:
@@ -28,19 +28,16 @@ jobs:
       - name: Check Marker File Existence
         id: marker
         run: |
-          set +e
-          python toto.py
-          echo "Après l'erreur"  # S'exécute?
-          # if [ -f "$LOCK_FILE" ]; then
-          #   echo "Plan marker found, skipping workflow."
-          #   echo "exists=true" >> $GITHUB_OUTPUT
-          # else
-          #   echo "exists=false" >> $GITHUB_OUTPUT
-          # fi
+          if [ -f "$PLAN_MARKER" ]; then
+            echo "Plan marker found, skipping workflow."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
-      # # - name: Setup UV
-      # #   if: steps.marker.outputs.already_deployed == 'false'
-      # #   uses: astral-sh/setup-uv@v3
+      - name: Setup UV
+        if: steps.marker.outputs.exists == 'false'
+        uses: astral-sh/setup-uv@v3
 
       # - name: Validate Project Plan
       #   id: validate
