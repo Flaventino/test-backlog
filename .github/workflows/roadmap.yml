@@ -43,6 +43,7 @@ jobs:
         id: validate
         if: steps.marker.outputs.exists == 'false'
         run: |
+          set +e
           uv run \
               --no-project \
               --python 3.14 \
