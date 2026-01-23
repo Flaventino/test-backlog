@@ -58,15 +58,6 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           
-          # # Debug (Maintenant tu devrais voir 2 valeurs)
-          # echo "Debug Array Size: ${#codes[@]}"
-          # echo "Debug Values: ${codes[*]}"
-
-
-          # status=("${PIPESTATUS[@]}")
-          echo "Status: $status"
-          # echo "debug array: ${PIPESTATUS[@]}"
-          
           # Eval bypass condition (code 20 + force flag)
           [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
 
