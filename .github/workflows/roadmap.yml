@@ -53,7 +53,7 @@ jobs:
               "$PLAN_CHECKER" --plan "$PLAN" \
               | tee report.txt || true
 
-          status=${PIPESTATUS[@]}
+          status=("${PIPESTATUS[@]}")
           echo "Status: $status"
           echo "debug array: ${PIPESTATUS[@]}"
           
