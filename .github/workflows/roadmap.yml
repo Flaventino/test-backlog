@@ -29,12 +29,13 @@ jobs:
         id: marker
         run: |
           python toto.py
-          if [ -f "$LOCK_FILE" ]; then
-            echo "Plan marker found, skipping workflow."
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          echo "Après l'erreur"  # S'exécute?
+          # if [ -f "$LOCK_FILE" ]; then
+          #   echo "Plan marker found, skipping workflow."
+          #   echo "exists=true" >> $GITHUB_OUTPUT
+          # else
+          #   echo "exists=false" >> $GITHUB_OUTPUT
+          # fi
 
       # # - name: Setup UV
       # #   if: steps.marker.outputs.already_deployed == 'false'
