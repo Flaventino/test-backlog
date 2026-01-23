@@ -46,15 +46,17 @@ jobs:
           set -uo pipefail
 
           # Run validation & trap upstream status
+          set +e
           uv run \
               --no-project \
               --python 3.14 \
               --with "pydantic>=2.12,<2.13" \
               "$PLAN_CHECKER" --plan "$PLAN" | \
-              tee report.txt || true
+              tee report.txt
 
           # Capture sécurisée
           codes=("${PIPESTATUS[@]}")
+          set -e
           
           # Debug (Maintenant tu devrais voir 2 valeurs)
           echo "Debug Array Size: ${#codes[@]}"
