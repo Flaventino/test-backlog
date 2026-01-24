@@ -32,7 +32,23 @@ jobs:
             echo "Plan marker found, skipping workflow."
             echo "exists=true" >> $GITHUB_OUTPUT
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+            # TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
+            reason="Plan marker file '$PLAN_MARKER' exists."
+            echo "::notice title=Workflow skipped::$reason"
+
+            {
+              echo "## Workflow skipped (no-op)"
+              echo
+              echo "**Reason:** $reason"
+              echo
+              echo "All remaining jobs were skipped to save CI time."
+              echo
+              echo "### How to proceed"
+              echo "- Remove the marker, or update the plan."
+              echo "- Re-run the workflow afterwards."
+            } >> "$GITHUB_STEP_SUMMARY"
+            # FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST
           fi
 
       - name: Setup UV
