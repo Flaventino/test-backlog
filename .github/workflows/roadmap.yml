@@ -16,40 +16,64 @@ jobs:
       issues: write
     env:
       PLAN: '_roadmap/roadmap_plan.json'
+      REPO: ${{ github.repository }}
       FORCE: ${{ inputs.force_apply }}
-      PLAN_MARKER: '_roadmap/.plan_applied'
+      # PLAN_MARKER: '_roadmap/.plan_applied'
       PLAN_CHECKER: '_roadmap/validate_plan.py'
       PLAN_APPLIER: '_roadmap/apply_plan.py'
       # github.event.
     steps:
+      - name: Gate - Verify No Open Issues
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check if any open issues exist using GitHub CLI
+          # Using --limit 1 for efficiency: stop after first match
+          count=$(gh issue list \
+            --repo "$REPO" \
+            --limit 1 \
+            --state open \
+            --json number \
+            -q "length(.)")
+
+          # Workflow execution decision
+          if [ "$count" -eq 0 ]; then
+            echo "go=true" >> $GITHUB_OUTPUT
+          else
+            echo "go=false" >> $GITHUB_OUTPUT
+            # echo "Open issues detected ($count). Aborting workflow."
+            # exit 1
+
+          fi
+
+
+          # if [ -f "$PLAN_MARKER" ]; then
+          #   echo "exists=true" >> $GITHUB_OUTPUT
+          #   echo "Plan marker found, skipping workflow."
+            
+          #   # # TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
+          #   # reason="Plan marker file '$PLAN_MARKER' exists."
+          #   # echo "::notice title=Workflow skipped::$reason"
+
+          #   # {
+          #   #   echo "## Workflow skipped (no-op)"
+          #   #   echo
+          #   #   echo "**Reason:** $reason"
+          #   #   echo
+          #   #   echo "All remaining jobs were skipped to save CI time."
+          #   #   echo
+          #   #   echo "### How to proceed"
+          #   #   echo "- Remove the marker, or update the plan."
+          #   #   echo "- Re-run the workflow afterwards."
+          #   # } >> "$GITHUB_STEP_SUMMARY"
+          #   # # FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST
+          # else
+          #   echo "exists=false" >> $GITHUB_OUTPUT
+          # fi
+
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Check Marker File Existence
-        id: marker
-        run: |
-          if [ -f "$PLAN_MARKER" ]; then
-            echo "Plan marker found, skipping workflow."
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=true" >> $GITHUB_OUTPUT
-            # TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
-            reason="Plan marker file '$PLAN_MARKER' exists."
-            echo "::notice title=Workflow skipped::$reason"
-
-            {
-              echo "## Workflow skipped (no-op)"
-              echo
-              echo "**Reason:** $reason"
-              echo
-              echo "All remaining jobs were skipped to save CI time."
-              echo
-              echo "### How to proceed"
-              echo "- Remove the marker, or update the plan."
-              echo "- Re-run the workflow afterwards."
-            } >> "$GITHUB_STEP_SUMMARY"
-            # FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST
-          fi
 
       - name: Setup UV
         if: steps.marker.outputs.exists == 'false'
