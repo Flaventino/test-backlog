@@ -34,7 +34,7 @@ jobs:
             --limit 1 \
             --json number \
             -q "length(.)")
-          echo "$issue_count issues found in repository."
+          echo "::notice titel=Test::$issue_count issues found in repository."
 
       #     # Workflow execution decision
       #     if [ "$count" -eq 0 ]; then
