@@ -33,17 +33,17 @@ jobs:
             --state all \
             --limit 1 \
             --json number -q length)
-          echo "::notice titel=Test::$issue_count issues found in repository."
+          echo "::notice title=Test de notice foireuse::$issue_count issues found in repository."
 
-      #     # Workflow execution decision
-      #     if [ "$count" -eq 0 ]; then
-      #       echo "go=true" >> $GITHUB_OUTPUT
-      #     else
-      #       echo "go=false" >> $GITHUB_OUTPUT
-      #       # echo "Open issues detected ($count). Aborting workflow."
-      #       # exit 1
+          # Workflow execution decision
+          if [ "$issue_count" -eq 0 ]; then
+            echo "go=true" >> $GITHUB_OUTPUT
+          else
+            echo "go=false" >> $GITHUB_OUTPUT
+            # echo "Open issues detected ($count). Aborting workflow."
+            # exit 1
 
-      #     fi
+          fi
 
 
       # #     # if [ -f "$PLAN_MARKER" ]; then
