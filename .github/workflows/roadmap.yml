@@ -8,8 +8,8 @@ on:
         default: false
 
 jobs:
-  validate-and-deploy-plan:
-    name: Validate & Apply Roadmap To GitHub Issues
+  process-roadmap:
+    name: Roadmap Processing
     runs-on: ubuntu-latest
     permissions:
       contents: write
