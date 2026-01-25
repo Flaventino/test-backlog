@@ -33,16 +33,26 @@ jobs:
             --state all \
             --limit 1 \
             --json number -q length)
-          echo "::notice title=Test de notice foireuse::$issue_count issues found in repository."
 
           # Workflow execution decision
           if [ "$issue_count" -eq 0 ]; then
             echo "go=true" >> $GITHUB_OUTPUT
           else
             echo "go=false" >> $GITHUB_OUTPUT
-            # echo "Open issues detected ($count). Aborting workflow."
-            # exit 1
 
+            # 1. Signal User (Notice)
+            echo "::notice title=Workflow skipped::GitHub Issues is not empty."
+
+            # 2. Generate Report (Summary)
+            {
+              echo "## Workflow Skipped"
+              echo "**Reason:** Repository already contains GitHub Issues (Open or Closed)."
+              echo "> *Execution bypassed to prevent data overwrite.*"
+              echo
+              echo "### Context"
+              echo "This workflow is a **Bootstrap** tool designed to run ONLY on a pristine repository."
+              echo "It detects activity in the Issue Tracker and halts to ensure safety."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
 
