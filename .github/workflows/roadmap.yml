@@ -78,30 +78,33 @@ jobs:
       - name: Setup Python Tooling (uv)
         uses: astral-sh/setup-uv@v3
 
-      # # - name: Validate Project Plan
-      # #   id: validate
-      # #   if: steps.marker.outputs.exists == 'false'
-      # #   run: |
-      # #     set -uo pipefail
+      - name: Validate Project Plan
+        id: validate
+        run: |
+          set -uo pipefail
 
-      # #     # Suspend exit-on-error to trap upstream validation status
-      # #     set +e
-      # #     uv run \
-      # #         --no-project \
-      # #         --python 3.14 \
-      # #         --with "pydantic>=2.12,<2.13" \
-      # #         "$PLAN_CHECKER" --plan "$PLAN" | \
-      # #         tee report.txt
+          # --- EXECUTE VALIDATION PROCESS ---
+          # 1. Defining command arguments & Python librariry dependencies
+          args=(
+            --no-project
+            --python 3.14
+            --with "pydantic>=2.12,<2.13"
+          )
 
-      # #     # Capture upstream status & restore strict mode
-      # #     status=${PIPESTATUS[0]}
-      # #     set -e
-          
-      # #     # Eval bypass condition (code 20 + force flag)
-      # #     [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
+          # 2. Suspend exit-on-error to trap upstream validation status
+          set +e
+          uv run "${args[@]}" "$PLAN_CHECKER" --plan "$PLAN" | tee report.txt
 
-      # #     # Assert step success criteria
-      # #     [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
+          # 3. Capture upstream status & restore strict mode
+          status=${PIPESTATUS[0]}
+          set -e
+
+          # --- DECISION LOGIC ---
+          # Eval bypass condition (code 20 + force flag)
+          [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
+
+          # Assert step success criteria
+          [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
 
       # # # - name: Deploy GitHub Issues
       # # # #   if: |
