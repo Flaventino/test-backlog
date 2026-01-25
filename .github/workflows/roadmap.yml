@@ -28,11 +28,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Fast-scan for any issue presence (Open or Closed)
-          issue_count=$(gh issue list \
-            --repo "$REPO" \
-            --state all \
-            --limit 1 \
-            --json number -q length)
+          # 1. Defining query parameters
+          args=(
+            --repo "$REPO"
+            --state all
+            --limit 1
+            --json number -q length
+          )
+
+          # 2. Execute query
+          issue_count=$(gh issue list "${args[@]}")
 
           # Workflow execution decision
           if [ "$issue_count" -eq 0 ]; then
