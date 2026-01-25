@@ -6,24 +6,21 @@ on:
         description: 'Ignore JSON file validation failures.'
         type: boolean
         default: false
+env:
+  REPO: ${{ github.repository }}
 
 jobs:
-  process-roadmap:
-    name: Roadmap Processing
+  gate:
+    name: Pre-flight Audit
     runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.audit.outputs.go }}
     permissions:
-      contents: write
-      issues: write
-    env:
-      PLAN: '_roadmap/roadmap_plan.json'
-      REPO: ${{ github.repository }}
-      FORCE: ${{ inputs.force_apply }}
-      # PLAN_MARKER: '_roadmap/.plan_applied'
-      PLAN_CHECKER: '_roadmap/validate_plan.py'
-      PLAN_APPLIER: '_roadmap/apply_plan.py'
+      contents: read
+      issues: read
     steps:
-      - name: Gate - Verify Zero Issues
-        id: gate
+      - name: Verify Issue Tracker is Empty
+        id: audit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -60,37 +57,26 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  process-roadmap:
+    name: Roadmap Processing
+    runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    permissions:
+      contents: read
+      issues: write
+    env:
+      PLAN: '_roadmap/roadmap_plan.json'
+      FORCE: ${{ inputs.force_apply }}
+      PLAN_CHECKER: '_roadmap/validate_plan.py'
+      PLAN_APPLIER: '_roadmap/apply_plan.py'
+    steps:
 
-      # #     # if [ -f "$PLAN_MARKER" ]; then
-      # #     #   echo "exists=true" >> $GITHUB_OUTPUT
-      # #     #   echo "Plan marker found, skipping workflow."
-            
-      # #     #   # # TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
-      # #     #   # reason="Plan marker file '$PLAN_MARKER' exists."
-      # #     #   # echo "::notice title=Workflow skipped::$reason"
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      # #     #   # {
-      # #     #   #   echo "## Workflow skipped (no-op)"
-      # #     #   #   echo
-      # #     #   #   echo "**Reason:** $reason"
-      # #     #   #   echo
-      # #     #   #   echo "All remaining jobs were skipped to save CI time."
-      # #     #   #   echo
-      # #     #   #   echo "### How to proceed"
-      # #     #   #   echo "- Remove the marker, or update the plan."
-      # #     #   #   echo "- Re-run the workflow afterwards."
-      # #     #   # } >> "$GITHUB_STEP_SUMMARY"
-      # #     #   # # FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST
-      # #     # else
-      # #     #   echo "exists=false" >> $GITHUB_OUTPUT
-      # #     # fi
-
-      # # - name: Checkout Repository
-      # #   uses: actions/checkout@v4
-
-      # # - name: Setup UV
-      # #   if: steps.marker.outputs.exists == 'false'
-      # #   uses: astral-sh/setup-uv@v3
+      - name: Setup Python Tooling (uv)
+        uses: astral-sh/setup-uv@v3
 
       # # - name: Validate Project Plan
       # #   id: validate
