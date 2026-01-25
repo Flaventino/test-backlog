@@ -21,94 +21,93 @@ jobs:
       # PLAN_MARKER: '_roadmap/.plan_applied'
       PLAN_CHECKER: '_roadmap/validate_plan.py'
       PLAN_APPLIER: '_roadmap/apply_plan.py'
-      # github.event.
     steps:
-      - name: Gate - Verify No Open Issues
+      - name: Gate - Verify Zero Issues
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Check if any open issues exist using GitHub CLI
-          # Using --limit 1 for efficiency: stop after first match
-          count=$(gh issue list \
+          # Fast-scan for any issue presence (Open or Closed)
+          issue_count=$(gh issue list \
             --repo "$REPO" \
+            --state all \
             --limit 1 \
-            --state open \
             --json number \
             -q "length(.)")
+          echo "$issue_count issues found in repository."
 
-          # Workflow execution decision
-          if [ "$count" -eq 0 ]; then
-            echo "go=true" >> $GITHUB_OUTPUT
-          else
-            echo "go=false" >> $GITHUB_OUTPUT
-            # echo "Open issues detected ($count). Aborting workflow."
-            # exit 1
+      #     # Workflow execution decision
+      #     if [ "$count" -eq 0 ]; then
+      #       echo "go=true" >> $GITHUB_OUTPUT
+      #     else
+      #       echo "go=false" >> $GITHUB_OUTPUT
+      #       # echo "Open issues detected ($count). Aborting workflow."
+      #       # exit 1
 
-          fi
+      #     fi
 
 
-          # if [ -f "$PLAN_MARKER" ]; then
-          #   echo "exists=true" >> $GITHUB_OUTPUT
-          #   echo "Plan marker found, skipping workflow."
+      # #     # if [ -f "$PLAN_MARKER" ]; then
+      # #     #   echo "exists=true" >> $GITHUB_OUTPUT
+      # #     #   echo "Plan marker found, skipping workflow."
             
-          #   # # TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
-          #   # reason="Plan marker file '$PLAN_MARKER' exists."
-          #   # echo "::notice title=Workflow skipped::$reason"
+      # #     #   # # TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
+      # #     #   # reason="Plan marker file '$PLAN_MARKER' exists."
+      # #     #   # echo "::notice title=Workflow skipped::$reason"
 
-          #   # {
-          #   #   echo "## Workflow skipped (no-op)"
-          #   #   echo
-          #   #   echo "**Reason:** $reason"
-          #   #   echo
-          #   #   echo "All remaining jobs were skipped to save CI time."
-          #   #   echo
-          #   #   echo "### How to proceed"
-          #   #   echo "- Remove the marker, or update the plan."
-          #   #   echo "- Re-run the workflow afterwards."
-          #   # } >> "$GITHUB_STEP_SUMMARY"
-          #   # # FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST
-          # else
-          #   echo "exists=false" >> $GITHUB_OUTPUT
-          # fi
+      # #     #   # {
+      # #     #   #   echo "## Workflow skipped (no-op)"
+      # #     #   #   echo
+      # #     #   #   echo "**Reason:** $reason"
+      # #     #   #   echo
+      # #     #   #   echo "All remaining jobs were skipped to save CI time."
+      # #     #   #   echo
+      # #     #   #   echo "### How to proceed"
+      # #     #   #   echo "- Remove the marker, or update the plan."
+      # #     #   #   echo "- Re-run the workflow afterwards."
+      # #     #   # } >> "$GITHUB_STEP_SUMMARY"
+      # #     #   # # FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST FIN TEST
+      # #     # else
+      # #     #   echo "exists=false" >> $GITHUB_OUTPUT
+      # #     # fi
 
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      # # - name: Checkout Repository
+      # #   uses: actions/checkout@v4
 
-      - name: Setup UV
-        if: steps.marker.outputs.exists == 'false'
-        uses: astral-sh/setup-uv@v3
+      # # - name: Setup UV
+      # #   if: steps.marker.outputs.exists == 'false'
+      # #   uses: astral-sh/setup-uv@v3
 
-      - name: Validate Project Plan
-        id: validate
-        if: steps.marker.outputs.exists == 'false'
-        run: |
-          set -uo pipefail
+      # # - name: Validate Project Plan
+      # #   id: validate
+      # #   if: steps.marker.outputs.exists == 'false'
+      # #   run: |
+      # #     set -uo pipefail
 
-          # Suspend exit-on-error to trap upstream validation status
-          set +e
-          uv run \
-              --no-project \
-              --python 3.14 \
-              --with "pydantic>=2.12,<2.13" \
-              "$PLAN_CHECKER" --plan "$PLAN" | \
-              tee report.txt
+      # #     # Suspend exit-on-error to trap upstream validation status
+      # #     set +e
+      # #     uv run \
+      # #         --no-project \
+      # #         --python 3.14 \
+      # #         --with "pydantic>=2.12,<2.13" \
+      # #         "$PLAN_CHECKER" --plan "$PLAN" | \
+      # #         tee report.txt
 
-          # Capture upstream status & restore strict mode
-          status=${PIPESTATUS[0]}
-          set -e
+      # #     # Capture upstream status & restore strict mode
+      # #     status=${PIPESTATUS[0]}
+      # #     set -e
           
-          # Eval bypass condition (code 20 + force flag)
-          [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
+      # #     # Eval bypass condition (code 20 + force flag)
+      # #     [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
 
-          # Assert step success criteria
-          [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
+      # #     # Assert step success criteria
+      # #     [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
 
-      # - name: Deploy GitHub Issues
-      # #   if: |
-      # #     steps.validate.outcome == 'success' ||
-      # #     (steps.validate.outcome == 'failure' && github.event.inputs.force_deploy == 'true')
-      # #   env:
-      # #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   # run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_FILE"
-      #   run: echo "Deploying plan..."
+      # # # - name: Deploy GitHub Issues
+      # # # #   if: |
+      # # # #     steps.validate.outcome == 'success' ||
+      # # # #     (steps.validate.outcome == 'failure' && github.event.inputs.force_deploy == 'true')
+      # # # #   env:
+      # # # #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # # #   # run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_FILE"
+      # # #   run: echo "Deploying plan..."
