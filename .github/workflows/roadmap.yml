@@ -32,8 +32,7 @@ jobs:
             --repo "$REPO" \
             --state all \
             --limit 1 \
-            --json number \
-            -q "length(.)")
+            --json number -q length)
           echo "::notice titel=Test::$issue_count issues found in repository."
 
       #     # Workflow execution decision
