@@ -27,23 +27,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Fast-scan for any issue presence (Open or Closed)
-          # 1. Defining query parameters
-          args=(
+          # --- PHASE 1: INSPECTION ---
+          # Defining query parameters (Fast-scan for any Open or Closed issues)
+          options=(
             --repo "$REPO"
             --state all
             --limit 1
             --json number -q length
           )
 
-          # 2. Execute query
-          issue_count=$(gh issue list "${args[@]}")
+          # Execute query
+          issue_count=$(gh issue list "${options[@]}")
 
-          # Workflow execution decision
+          # --- PHASE 2: DECISION & REPORTING
           if [ "$issue_count" -eq 0 ]; then
-            echo "go=true" >> $GITHUB_OUTPUT
+            echo "go=true" >> "$GITHUB_OUTPUT"
           else
-            echo "go=false" >> $GITHUB_OUTPUT
+            echo "go=false" >> "$GITHUB_OUTPUT"
 
             # 1. Signal User (Notice)
             echo "::notice title=Workflow skipped::GitHub Issues is not empty."
