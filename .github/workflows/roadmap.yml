@@ -42,10 +42,10 @@ jobs:
           else
             echo "go=false" >> "$GITHUB_OUTPUT"
 
-            # 1. Signal User (Notice)
+            # A. Signal User (Notice)
             echo "::notice title=Workflow skipped::GitHub Issues is not empty."
 
-            # 2. Generate Report (Summary)
+            # B. Generate Report (Summary)
             {
               echo "## Workflow Skipped"
               echo "**Reason:** Repository already contains GitHub Issues (Open or Closed)."
@@ -79,38 +79,69 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Validate Project Plan
-        id: validate
         run: |
           set -uo pipefail
 
           # --- EXECUTE VALIDATION PROCESS ---
-          # 1. Defining command arguments & Python librariry dependencies
+          # A. Configure UV environment & args
           args=(
             --no-project
             --python 3.14
             --with "pydantic>=2.12,<2.13"
           )
 
-          # 2. Suspend exit-on-error to trap upstream validation status
+          # B. Execute with upstream error trapping
           set +e
           uv run "${args[@]}" "$PLAN_CHECKER" --plan "$PLAN" | tee report.txt
-
-          # 3. Capture upstream status & restore strict mode
           status=${PIPESTATUS[0]}
           set -e
 
           # --- DECISION LOGIC ---
-          # Eval bypass condition (code 20 + force flag)
-          [[ $status -eq 20 && "$FORCE" == "true" ]] && bypass=0 || bypass=1
+          # CASE 1: SUCCESS
+          if [ "$status" -eq 0 ]; then exit 0; fi
 
-          # Assert step success criteria
-          [[ $status -eq 0 || $bypass -eq 0 ]] || exit $status
+          # CASE 2: CRITICAL ERRORS
+          if [ "$status" -ne 20 ]; then
+            echo "::error title=System Failure::Script crashed with unexpected error code $status."
+            exit $status
+          fi
 
-      # # # - name: Deploy GitHub Issues
-      # # # #   if: |
-      # # # #     steps.validate.outcome == 'success' ||
-      # # # #     (steps.validate.outcome == 'failure' && github.event.inputs.force_deploy == 'true')
-      # # # #   env:
-      # # # #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # # #   # run: uv run "$PLAN_DEPLOYER" --plan "$PLAN" --marker "$LOCK_FILE"
-      # # #   run: echo "Deploying plan..."
+          # CASE 3: VALIDATION FAILURES (code 20)
+          # A. Build Public Report
+          {
+            echo "## 🛑 Validation Failed"
+            echo "The document \`$PLAN\` did not pass validation rules."
+            echo
+            echo "### 📋 Compliance Report"
+            echo '```text'
+            cat report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # B. Apply Force Policy
+          if [ "$FORCE" == "true" ]; then
+            # FORCE ON -> WARNING & CONTINUE
+            echo "::warning title=Safety Override::Validation failed but execution was FORCED by user."
+            echo "> ⚠️ **WARNING:** Execution continues because 'FORCE' mode is active." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          else
+            # FORCE OFF -> ERROR & STOP
+            echo "::error title=Validation Blocked::Document is invalid. See Summary for details."
+            echo "> ⛔ **STOP:** Workflow halted standard safety procedure." >> "$GITHUB_STEP_SUMMARY"
+            exit 20
+          fi
+
+      # - name: Apply Plan (create GitHub Issues)
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     # --- PHASE 1: EXECUTION ---
+      #     # A. Configure UV environment & args
+      #     uv_args=(
+      #       --no-project
+      #       --python 3.14
+      #       --with "pydantic>=2.12,<2.13"
+      #     )
+
+      #     # B. Execute Roadmap Application
+      #     uv run "${uv_args[@]}" "$PLAN_APPLIER" --plan "$PLAN"
