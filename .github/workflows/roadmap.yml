@@ -84,7 +84,7 @@ jobs:
 
           # --- EXECUTE VALIDATION PROCESS ---
           # A. Configure UV environment & args
-          args=(
+          uv_args=(
             --no-project
             --python 3.14
             --with "pydantic>=2.12,<2.13"
@@ -92,7 +92,7 @@ jobs:
 
           # B. Execute with upstream error trapping
           set +e
-          uv run "${args[@]}" "$PLAN_CHECKER" --plan "$PLAN" | tee report.txt
+          uv run "${uv_args[@]}" "$PLAN_CHECKER" --plan "$PLAN" | tee report.txt
           status=${PIPESTATUS[0]}
           set -e
 
@@ -101,10 +101,7 @@ jobs:
           if [ "$status" -eq 0 ]; then exit 0; fi
 
           # CASE 2: CRITICAL ERRORS
-          if [ "$status" -ne 20 ]; then
-            echo "::error title=System Failure::Script crashed with unexpected error code $status."
-            exit $status
-          fi
+          if [ "$status" -ne 20 ]; then exit $status; fi
 
           # CASE 3: VALIDATION FAILURES (code 20)
           # A. Build Public Report
