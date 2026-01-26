@@ -681,12 +681,12 @@ def main() -> None:
     # print(f'{type(args.plan) = }')
     # print(f'--plan: {args.plan = }')
     # sys.exit(0)
-    gaston = "G A S T O N   L A   M A G N I F I Q U E"
+    gaston = "G A S T O N   &   J O S H U A"
     print('///   A N A L Y S I S   R E P O R T   ///')
     for i in range(len(gaston)):
         print(f'{i}: {gaston[::-1][:i].upper()}')
     # gaston = 5/0
-    sys.exit(20)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
