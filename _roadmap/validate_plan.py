@@ -607,51 +607,51 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 #         print("\nResult: VALID (warnings detected, but no blocking errors).")
 
 
-# def validate_project_file(file_path: str | Path) -> bool:
-#     """Validate a JSON file against the protocol and print the report.
+def validate_project_file(file_path: str | Path) -> bool:
+    """Validate a JSON file against the protocol and print the report.
 
-#     Args:
-#         file_path: Path to the JSON file.
+    Args:
+        file_path: Path to the JSON file.
 
-#     Returns:
-#         True if valid (no blocking errors), False otherwise.
-#     """
-#     path = Path(file_path)
+    Returns:
+        True if valid (no blocking errors), False otherwise.
+    """
+    path = Path(file_path)
 
-#     try:
-#         data = _read_json_file(path)
-#     except OSError as exc:
-#         report = ValidationReport(
-#             issues=[
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.STRUCTURAL,
-#                     location="$",
-#                     message=f"Cannot read file: {exc}.",
-#                     suggestion="Check the file path and permissions.",
-#                 )
-#             ]
-#         )
-#         _print_report(report)
-#         return False
-#     except json.JSONDecodeError as exc:
-#         report = ValidationReport(
-#             issues=[
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.STRUCTURAL,
-#                     location="$",
-#                     message=f"Invalid JSON: {exc}.",
-#                     suggestion="Fix JSON syntax (JSON does not support comments).",
-#                 )
-#             ]
-#         )
-#         _print_report(report)
-#         return False
+    try:
+        data = _read_json_file(path)
+    except OSError as exc:
+        report = ValidationReport(
+            issues=[
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.STRUCTURAL,
+                    location="$",
+                    message=f"Cannot read file: {exc}.",
+                    suggestion="Check the file path and permissions.",
+                )
+            ]
+        )
+        _print_report(report)
+        return False
+    except json.JSONDecodeError as exc:
+        report = ValidationReport(
+            issues=[
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.STRUCTURAL,
+                    location="$",
+                    message=f"Invalid JSON: {exc}.",
+                    suggestion="Fix JSON syntax (JSON does not support comments).",
+                )
+            ]
+        )
+        _print_report(report)
+        return False
 
-#     report = validate_project_data(data)
-#     _print_report(report)
-#     return not report.has_errors()
+    report = validate_project_data(data)
+    _print_report(report)
+    return not report.has_errors()
 
 
 # === ENTRY POINT ===
@@ -674,17 +674,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main() -> None:
     """CLI entry point."""
 
-    # --- 
+    # --- CLI argument parsing
     plan = _build_arg_parser().parse_args().plan
-    print(f'--plan: {plan = }')
-    # parser = _build_arg_parser()
-    # args = parser.parse_args()
-    # is_valid = validate_project_file(args.json_file)
-    # sys.exit(0 if is_valid else 1)
-    # print(f'{type(args) = }')
-    # print(f'{type(args.plan) = }')
-    # print(f'--plan: {args.plan = }')
-    # sys.exit(0)
+
+    # --- Execute validation and handle exit code
+    is_plan_valid = validate_project_file(plan)
+    sys.exit(0 if is_plan_valid else 20)
 
 
 if __name__ == "__main__":
