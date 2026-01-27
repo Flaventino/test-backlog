@@ -673,20 +673,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 # --- Main execution
 def main() -> None:
     """CLI entry point."""
-    parser = _build_arg_parser()
-    args = parser.parse_args()
+
+    # --- 
+    plan = _build_arg_parser().parse_args().plan
+    print(f'--plan: {plan = }')
+    # parser = _build_arg_parser()
+    # args = parser.parse_args()
     # is_valid = validate_project_file(args.json_file)
     # sys.exit(0 if is_valid else 1)
     # print(f'{type(args) = }')
     # print(f'{type(args.plan) = }')
     # print(f'--plan: {args.plan = }')
     # sys.exit(0)
-    gaston = "G A S T O N   &   J O S H U A"
-    print('///   A N A L Y S I S   R E P O R T   ///')
-    for i in range(len(gaston)):
-        print(f'{i}: {gaston[::-1][:i].upper()}')
-    # gaston = 5/0
-    sys.exit(20)
 
 
 if __name__ == "__main__":
