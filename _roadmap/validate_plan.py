@@ -73,15 +73,15 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 #     suggestion: str | None = None
 
 
-# @dataclass(frozen=True, slots=True)
-# class ValidationReport:
-#     """Aggregates validation issues and provides convenience helpers."""
+@dataclass(frozen=True, slots=True)
+class ValidationReport:
+    """Aggregates validation issues and provides convenience helpers."""
 
-#     issues: list[ValidationIssue]
+    issues: list[ValidationIssue]
 
-#     def has_errors(self) -> bool:
-#         """Returns True if at least one blocking error exists."""
-#         return any(i.severity == Severity.ERROR for i in self.issues)
+    def has_errors(self) -> bool:
+        """Returns True if at least one blocking error exists."""
+        return any(i.severity == Severity.ERROR for i in self.issues)
 
 
 # class Metadata(BaseModel):
@@ -182,22 +182,6 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 #         else:
 #             path += f".{part}"
 #     return path
-
-
-# def _read_json_file(file_path: Path) -> Any:
-#     """Read and parse a JSON file.
-
-#     Args:
-#         file_path: Path to a JSON file.
-
-#     Returns:
-#         Parsed JSON content.
-
-#     Raises:
-#         OSError: If the file cannot be read.
-#         json.JSONDecodeError: If the file is not valid JSON.
-#     """
-#     return json.loads(file_path.read_text(encoding="utf-8"))
   
 
 # def _suggest_from_pydantic_error(err: dict[str, Any]) -> str | None:
@@ -607,6 +591,22 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 #         print("\nResult: VALID (warnings detected, but no blocking errors).")
 
 
+def _read_json_file(file_path: Path) -> Any:
+    """Read and parse a JSON file.
+
+    Args:
+        file_path: Path to a JSON file.
+
+    Returns:
+        Parsed JSON content.
+
+    Raises:
+        OSError: If the file cannot be read.
+        json.JSONDecodeError: If the file is not valid JSON.
+    """
+    return json.loads(file_path.read_text(encoding="utf-8"))
+
+
 def validate_project_file(file_path: str | Path) -> bool:
     """Validate a JSON file against the protocol and print the report.
 
@@ -616,32 +616,33 @@ def validate_project_file(file_path: str | Path) -> bool:
     Returns:
         True if valid (no blocking errors), False otherwise.
     """
-    path = Path(file_path)
 
+    # --- Load data & handle reading/parsing errors
     try:
+        path = Path(file_path)
         data = _read_json_file(path)
-    except OSError as exc:
+    except OSError as error:
         report = ValidationReport(
             issues=[
                 ValidationIssue(
                     severity=Severity.ERROR,
                     issue_type=IssueType.STRUCTURAL,
                     location="$",
-                    message=f"Cannot read file: {exc}.",
+                    message=f"Cannot read file: {error}.",
                     suggestion="Check the file path and permissions.",
                 )
             ]
         )
         _print_report(report)
         return False
-    except json.JSONDecodeError as exc:
+    except json.JSONDecodeError as error:
         report = ValidationReport(
             issues=[
                 ValidationIssue(
                     severity=Severity.ERROR,
                     issue_type=IssueType.STRUCTURAL,
                     location="$",
-                    message=f"Invalid JSON: {exc}.",
+                    message=f"Invalid JSON: {error}.",
                     suggestion="Fix JSON syntax (JSON does not support comments).",
                 )
             ]
@@ -649,6 +650,7 @@ def validate_project_file(file_path: str | Path) -> bool:
         _print_report(report)
         return False
 
+    # --- Validate business logic & print report
     report = validate_project_data(data)
     _print_report(report)
     return not report.has_errors()
