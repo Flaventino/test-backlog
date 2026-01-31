@@ -44,33 +44,33 @@ from pydantic import ValidationError, model_validator
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 
 
-# # ///   C L A S S E S   ///
-# class Severity(str, Enum):
-#     """Issue severity as required by the protocol."""
+# ///   C L A S S E S   ///
+class Severity(str, Enum):
+    """Issue severity as required by the protocol."""
 
-#     ERROR = "error"
-#     WARNING = "warning"
-
-
-# class IssueType(str, Enum):
-#     """Semantic categorization of validation issues."""
-
-#     STRUCTURAL = "structural"
-#     REFERENTIAL = "referential"
-#     UNIQUENESS = "uniqueness"
-#     PROTOCOL_RULE = "protocol_rule"
-#     RECOMMENDATION = "recommendation"
+    ERROR = "error"
+    WARNING = "warning"
 
 
-# @dataclass(frozen=True, slots=True)
-# class ValidationIssue:
-#     """Represents a single validation anomaly."""
+class IssueType(str, Enum):
+    """Semantic categorization of validation issues."""
 
-#     severity: Severity
-#     issue_type: IssueType
-#     location: str
-#     message: str
-#     suggestion: str | None = None
+    STRUCTURAL = "structural"
+    REFERENTIAL = "referential"
+    UNIQUENESS = "uniqueness"
+    PROTOCOL_RULE = "protocol_rule"
+    RECOMMENDATION = "recommendation"
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationIssue:
+    """Represents a single validation anomaly."""
+
+    severity: Severity
+    issue_type: IssueType
+    location: str
+    message: str
+    suggestion: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -570,25 +570,25 @@ class ValidationReport:
 #     return ValidationReport(issues=issues)
 
 
-# def _print_report(report: ValidationReport) -> None:
-#     """Print a human-readable validation report to stdout."""
-#     if not report.issues:
-#         print("No issues detected. Project is valid.")
-#         return
+def _print_report(report: ValidationReport) -> None:
+    """Print a human-readable validation report to stdout."""
+    if not report.issues:
+        print("No issues detected. Project is valid.")
+        return
 
-#     print("Validation report:")
-#     for issue in report.issues:
-#         print(
-#             f"- [{issue.severity.value.upper()}] "
-#             f"({issue.issue_type.value}) {issue.location}: {issue.message}"
-#         )
-#         if issue.suggestion:
-#             print(f"  Suggestion: {issue.suggestion}")
+    print("Validation report:")
+    for issue in report.issues:
+        print(
+            f"- [{issue.severity.value.upper()}] "
+            f"({issue.issue_type.value}) {issue.location}: {issue.message}"
+        )
+        if issue.suggestion:
+            print(f"  Suggestion: {issue.suggestion}")
 
-#     if report.has_errors():
-#         print("\nResult: INVALID (blocking errors detected).")
-#     else:
-#         print("\nResult: VALID (warnings detected, but no blocking errors).")
+    if report.has_errors():
+        print("\nResult: INVALID (blocking errors detected).")
+    else:
+        print("\nResult: VALID (warnings detected, but no blocking errors).")
 
 
 def _read_json_file(file_path: Path) -> Any:
