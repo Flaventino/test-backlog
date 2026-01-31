@@ -84,83 +84,81 @@ class ValidationReport:
         return any(i.severity == Severity.ERROR for i in self.issues)
 
 
-# class Metadata(BaseModel):
-#     """Pydantic model for project metadata."""
+class Metadata(BaseModel):
+    """Pydantic model for project metadata."""
 
-#     model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid", strict=True)
 
-#     projet_nom: str
-#     version_protocole: Literal["SPEC-1.0.0"]
-#     description: str | None = None
-
-
-# class Milestone(BaseModel):
-#     """Pydantic model for milestones."""
-
-#     model_config = ConfigDict(extra="forbid", strict=True)
-
-#     id: str
-#     titre: str
-#     configuration: Literal["Actif", "Gate"]
-#     start_delay: StrictInt = Field(ge=0)
-#     duration: StrictInt = Field(ge=0)
-#     description: str | None = None
+    projet_nom: str
+    version_protocole: Literal["SPEC-1.0.0"]
+    description: str | None = None
 
 
-# class Epic(BaseModel):
-#     """Pydantic model for epics."""
+class Milestone(BaseModel):
+    """Pydantic model for milestones."""
 
-#     model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid", strict=True)
 
-#     id: str
-#     parent_id: str
-#     titre: str
-#     configuration: Literal["Standard", "Discovery"]
-#     label: str | None = None
-#     description: str | None = None
-
-
-# class Task(BaseModel):
-#     """Pydantic model for tasks."""
-
-#     model_config = ConfigDict(extra="forbid", strict=True)
-
-#     id: str
-#     parent_link: str
-#     titre: str
-#     configuration: Literal["Indépendante", "Sequentielle", "Orpheline", "Membre"]
-#     estimate: StrictInt | StrictFloat = Field(ge=0)
-#     depends_on: list[str]
-#     description: str | None = None
-#     assignee: str | None = None
-
-#     @model_validator(mode="after")
-#     def _validate_independente_depends_on(self) -> "Task":
-#         """Enforce protocol rule: Independent tasks must have an empty depends_on.
-
-#         Returns:
-#             The validated task.
-
-#         Raises:
-#             ValueError: If the rule is violated.
-#         """
-#         if self.configuration == "Indépendante" and self.depends_on:
-#             raise ValueError(
-#                 "For configuration 'Indépendante', 'depends_on' must be an empty "
-#                 "array []."
-#             )
-#         return self
+    id: str
+    titre: str
+    configuration: Literal["Actif", "Gate"]
+    start_delay: StrictInt = Field(ge=0)
+    duration: StrictInt = Field(ge=0)
+    description: str | None = None
 
 
-# class Project(BaseModel):
-#     """Root Pydantic model for the protocol JSON document."""
+class Epic(BaseModel):
+    """Pydantic model for epics."""
 
-#     model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid", strict=True)
 
-#     metadata: Metadata
-#     milestones: list[Milestone]
-#     epics: list[Epic]
-#     tasks: list[Task]
+    id: str
+    parent_id: str
+    titre: str
+    configuration: Literal["Standard", "Discovery"]
+    label: str | None = None
+    description: str | None = None
+
+
+class Task(BaseModel):
+    """Pydantic model for tasks."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str
+    parent_link: str
+    titre: str
+    configuration: Literal["Indépendante", "Sequentielle", "Orpheline", "Membre"]
+    estimate: StrictInt | StrictFloat = Field(ge=0)
+    depends_on: list[str]
+    description: str | None = None
+    assignee: str | None = None
+
+    @model_validator(mode="after")
+    def _check_task_is_really_independent(self) -> "Task":
+        """Protocol rule: Independent tasks must have an empty depends_on.
+
+        Returns:
+            The validated task.
+
+        Raises:
+            ValueError: If the rule is violated.
+        """
+        if self.configuration == "Indépendante" and self.depends_on:
+            txt = "For configuration 'Indépendante', 'depends_on' must empty."
+            raise ValueError(txt)
+        return self
+
+
+class Project(BaseModel):
+    """Root Pydantic model for the protocol JSON document."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    metadata: Metadata
+    milestones: list[Milestone]
+    epics: list[Epic]
+    tasks: list[Task]
 
 
 # # ///   F U N C T I O N S   ///
@@ -201,33 +199,6 @@ class ValidationReport:
 #     if "int" in err_type or "float" in err_type:
 #         return "Fix the value type to match the protocol (numeric field expected)."
 #     return None
-
-
-# def _parse_with_pydantic(data: Any) -> tuple[Project | None, list[ValidationIssue]]:
-#     """Parse and validate the project structurally with Pydantic.
-
-#     Args:
-#         data: Raw parsed JSON.
-
-#     Returns:
-#         A tuple (project_or_none, structural_issues).
-#     """
-#     try:
-#         project = Project.model_validate(data)
-#         return project, []
-#     except ValidationError as exc:
-#         issues: list[ValidationIssue] = []
-#         for err in exc.errors():
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.STRUCTURAL,
-#                     location=_loc_to_json_path(err.get("loc", ())),
-#                     message=str(err.get("msg", "Invalid value.")),
-#                     suggestion=_suggest_from_pydantic_error(err),
-#                 )
-#             )
-#         return None, issues
 
 
 # def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
@@ -547,31 +518,77 @@ class ValidationReport:
 #     return issues
 
 
-# def validate_project_data(data: Any) -> ValidationReport:
-#     """Validate a parsed JSON object against the protocol.
+def _parse_with_pydantic(data: Any) -> tuple[Project | None, list[ValidationIssue]]:
+    """Parse and validate the project structurally with Pydantic.
 
-#     Args:
-#         data: Parsed JSON content (typically a dict).
+    Args:
+        data: Raw parsed JSON.
 
-#     Returns:
-#         ValidationReport containing all detected issues.
-#     """
-#     project, issues = _parse_with_pydantic(data)
-#     if project is None:
-#         return ValidationReport(issues=issues)
+    Returns:
+        A tuple (project_or_none, structural_issues).
+    """
 
-#     issues.extend(_check_global_id_uniqueness(project))
-#     issues.extend(_check_references(project))
-#     issues.extend(_check_gate_milestone_empty(project))
-#     issues.extend(_check_dependency_milestone_order(project))
-#     issues.extend(_check_id_prefix_recommendations(project))
-#     issues.extend(_check_missing_descriptions(project))
+    try:
+        project = Project.model_validate(data)
+        return project, []
+    except ValidationError as exceptions:
+        issues: list[ValidationIssue] = []
+        for error in exceptions.errors():
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.STRUCTURAL,
+                    location=_loc_to_json_path(error.get("loc", ())),
+                    message=str(error.get("msg", "Invalid value.")),
+                    suggestion=_suggest_from_pydantic_error(error),
+                )
+            )
+        return None, issues
 
-#     return ValidationReport(issues=issues)
+
+def validate_project_data(data: Any) -> ValidationReport:
+    """Validate a parsed JSON object against the protocol.
+
+    Args:
+        data: Parsed JSON content (typically a dict).
+
+    Returns:
+        ValidationReport containing all detected issues.
+    """
+    project, issues = _parse_with_pydantic(data)
+    if project is None:
+        return ValidationReport(issues=issues)
+
+    issues.extend(_check_global_id_uniqueness(project))
+    issues.extend(_check_references(project))
+    issues.extend(_check_gate_milestone_empty(project))
+    issues.extend(_check_dependency_milestone_order(project))
+    issues.extend(_check_id_prefix_recommendations(project))
+    issues.extend(_check_missing_descriptions(project))
+
+    return ValidationReport(issues=issues)
 
 
 def _print_report(report: ValidationReport) -> None:
-    """Print a human-readable validation report to stdout."""
+    """Print a human-readable validation report to stdout.
+    
+    Formats and displays all validation issues grouped by severity and type,
+    with suggestions when available. Also shows a final summary indicating
+    whether the project is valid or not.
+    
+    Args:
+        report: The ValidationReport object containing all detected issues.
+    
+    Returns:
+        None. Output is printed directly to stdout.
+    
+    Notes:
+        - If no issues are found, prints a success message.
+        - Issues are formatted as: [SEVERITY] (type) location: message
+        - Suggestions are indented and prefixed with "Suggestion:"
+        - Final result line indicates validity status based on presence of errors.
+    """
+
     if not report.issues:
         print("No issues detected. Project is valid.")
         return
@@ -617,7 +634,7 @@ def validate_project_file(file_path: str | Path) -> bool:
         True if valid (no blocking errors), False otherwise.
     """
 
-    # --- Load data & handle reading/parsing errors
+    # --- Try to load data & handle reading/parsing errors
     try:
         path = Path(file_path)
         data = _read_json_file(path)
@@ -674,7 +691,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 # --- Main execution
 def main() -> None:
-    """CLI entry point."""
+    """CLI entry point.
+    
+    Parses command-line arguments, validates the specified JSON file,
+    prints the validation report, and exits with appropriate exit code.
+    
+    Exit codes:
+        - 0: Validation successful (no blocking errors)
+        - 20: Validation failed (blocking errors detected)
+    
+    Notes:
+        This function is only called when the script is executed directly
+        from the command line (not when imported as a module).
+    """
 
     # --- CLI argument parsing
     plan = _build_arg_parser().parse_args().plan
