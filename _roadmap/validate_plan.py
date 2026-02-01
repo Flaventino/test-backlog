@@ -45,6 +45,8 @@ from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
 
 
 # ///   C L A S S E S   ///
+
+# === ENUMS ===
 class Severity(str, Enum):
     """Issue severity as required by the protocol."""
 
@@ -62,6 +64,7 @@ class IssueType(str, Enum):
     RECOMMENDATION = "recommendation"
 
 
+# === REPORTING STRUCTURES ===
 @dataclass(frozen=True, slots=True)
 class ValidationIssue:
     """Represents a single validation anomaly."""
@@ -84,6 +87,9 @@ class ValidationReport:
         return any(i.severity == Severity.ERROR for i in self.issues)
 
 
+# === DATA MODELS ===
+
+# --- Components
 class Metadata(BaseModel):
     """Pydantic model for project metadata."""
 
@@ -150,6 +156,7 @@ class Task(BaseModel):
         return self
 
 
+# --- Top-level
 class Project(BaseModel):
     """Root Pydantic model for the protocol JSON document."""
 
@@ -161,363 +168,438 @@ class Project(BaseModel):
     tasks: list[Task]
 
 
-# # ///   F U N C T I O N S   ///
+# ///   F U N C T I O N S   ///
 
-# # === BUSINESS LOGIC ===
-# def _loc_to_json_path(loc: Iterable[Any]) -> str:
-#     """Convert a Pydantic error location to a JSONPath-like string.
+# === UTILITIES ===
+def _read_json_file(file_path: Path) -> Any:
+    """Read and parse a JSON file.
 
-#     Args:
-#         loc: Pydantic "loc" iterable (e.g., ('tasks', 0, 'id')).
+    Args:
+        file_path: Path to a JSON file.
 
-#     Returns:
-#         A JSONPath-like location (e.g., $.tasks[0].id).
-#     """
-#     path = "$"
-#     for part in loc:
-#         if isinstance(part, int):
-#             path += f"[{part}]"
-#         else:
-#             path += f".{part}"
-#     return path
+    Returns:
+        Parsed JSON content.
+
+    Raises:
+        OSError: If the file cannot be read.
+        json.JSONDecodeError: If the file is not valid JSON.
+    """
+    return json.loads(file_path.read_text(encoding="utf-8"))
+
+
+def _print_report(report: ValidationReport) -> None:
+    """Print a human-readable validation report to stdout.
+    
+    Formats and displays all validation issues grouped by severity and type,
+    with suggestions when available. Also shows a final summary indicating
+    whether the project is valid or not.
+    
+    Args:
+        report: The ValidationReport object containing all detected issues.
+    
+    Returns:
+        None. Output is printed directly to stdout.
+    
+    Notes:
+        - If no issues are found, prints a success message.
+        - Issues are formatted as: [SEVERITY] (type) location: message
+        - Suggestions are indented and prefixed with "Suggestion:"
+        - Final result line indicates validity status based on presence of errors.
+    """
+
+    if not report.issues:
+        print("No issues detected. Project is valid.")
+        return
+
+    print("Validation report:")
+    for issue in report.issues:
+        print(
+            f"- [{issue.severity.value.upper()}] "
+            f"({issue.issue_type.value}) {issue.location}: {issue.message}"
+        )
+        if issue.suggestion:
+            print(f"  Suggestion: {issue.suggestion}")
+
+    if report.has_errors():
+        print("\nResult: INVALID (blocking errors detected).")
+    else:
+        print("\nResult: VALID (warnings detected, but no blocking errors).")
+
+
+def _loc_to_json_path(loc: Iterable[Any]) -> str:
+    """Convert a Pydantic error location to a JSONPath-like string.
+
+    Args:
+        loc: Pydantic "loc" iterable (e.g., ('tasks', 0, 'id')).
+
+    Returns:
+        A JSONPath-like location (e.g., $.tasks[0].id).
+    """
+    path = "$"
+    for part in loc:
+        if isinstance(part, int):
+            path += f"[{part}]"
+        else:
+            path += f".{part}"
+    return path
+
+
+def _suggest_from_pydantic_error(error: dict[str, Any]) -> str | None:
+    """Convert a Pydantic error into an actionable, human-readable suggestion.
+
+    Analyzes the error type and location to provide specific guidance for
+    fixing common protocol violations (missing fields, wrong values, etc.).
+
+    Args:
+        err: A dictionary representing one Pydantic validation error, typically
+             an item from ValidationError.errors().
+
+    Returns:
+        A string containing a correction suggestion, or None if no specific
+        suggestion could be generated.
+    Notes:
+        This is a best-effort heuristic based on keys such as 'type' and 'loc'."""
+
+    # --- Error details retrieval
+    error_type = error.get("type", "")
+    loc = error.get("loc", ())
+    last = loc[-1] if loc else None
+
+    # --- Heuristic suggestion logic
+    if error_type == "missing" and isinstance(last, str):
+        return f"Add the required field '{last}' as defined by the protocol."
+    if error_type == "literal_error":
+        if last == "version_protocole":
+            return "Set 'metadata.version_protocole' to exactly 'SPEC-1.0.0'."
+        return "Set the value to one of the allowed literals defined by the protocol."
+    if error_type in {"extra_forbidden"}:
+        return "Remove the unexpected field (the protocol schema is strict)."
+    if "int" in error_type or "float" in error_type:
+        return "Fix the value type to match the protocol (numeric field expected)."
+    return None
+
+
+def _resolve_task_milestone_id(project: Project) -> dict[str, str]:
+    """Resolve each task's milestone ID using parent_link and epic.parent_id.
+
+    Returns:
+        Mapping: task_id -> milestone_id
+
+    Notes:
+        If a task parent_link points to a milestone, that is the milestone.
+        If it points to an epic, milestone is epic.parent_id.
+        If resolution is impossible, the task is omitted from the mapping.
+        (Referential errors are handled elsewhere.)
+    """
+    epic_to_milestone = {e.id: e.parent_id for e in project.epics}
+    milestone_ids = {m.id for m in project.milestones}
+
+    mapping: dict[str, str] = {}
+    for t in project.tasks:
+        if t.parent_link in milestone_ids:
+            mapping[t.id] = t.parent_link
+        elif t.parent_link in epic_to_milestone:
+            mapping[t.id] = epic_to_milestone[t.parent_link]
+    return mapping
   
 
-# def _suggest_from_pydantic_error(err: dict[str, Any]) -> str | None:
-#     """Generate a best-effort suggestion based on a Pydantic error entry."""
-#     err_type = err.get("type", "")
-#     loc = err.get("loc", ())
-#     last = loc[-1] if loc else None
+# === BUSINESS LOGIC ===
 
-#     if err_type == "missing" and isinstance(last, str):
-#         return f"Add the required field '{last}' as defined by the protocol."
-#     if err_type == "literal_error":
-#         if last == "version_protocole":
-#             return "Set 'metadata.version_protocole' to exactly 'SPEC-1.0.0'."
-#         return "Set the value to one of the allowed literals defined by the protocol."
-#     if err_type in {"extra_forbidden"}:
-#         return "Remove the unexpected field (the protocol schema is strict)."
-#     if "int" in err_type or "float" in err_type:
-#         return "Fix the value type to match the protocol (numeric field expected)."
-#     return None
+# --- Top-Level rules
+def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
+    """Check global uniqueness of IDs across milestones, epics and tasks."""
+    occurrences: dict[str, list[str]] = {}
 
+    for i, m in enumerate(project.milestones):
+        occurrences.setdefault(m.id, []).append(f"$.milestones[{i}].id")
+    for i, e in enumerate(project.epics):
+        occurrences.setdefault(e.id, []).append(f"$.epics[{i}].id")
+    for i, t in enumerate(project.tasks):
+        occurrences.setdefault(t.id, []).append(f"$.tasks[{i}].id")
 
-# def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
-#     """Check global uniqueness of IDs across milestones, epics and tasks."""
-#     occurrences: dict[str, list[str]] = {}
-
-#     for i, m in enumerate(project.milestones):
-#         occurrences.setdefault(m.id, []).append(f"$.milestones[{i}].id")
-#     for i, e in enumerate(project.epics):
-#         occurrences.setdefault(e.id, []).append(f"$.epics[{i}].id")
-#     for i, t in enumerate(project.tasks):
-#         occurrences.setdefault(t.id, []).append(f"$.tasks[{i}].id")
-
-#     issues: list[ValidationIssue] = []
-#     for obj_id, locs in occurrences.items():
-#         if len(locs) <= 1:
-#             continue
-#         locs_str = ", ".join(locs)
-#         for loc in locs:
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.UNIQUENESS,
-#                     location=loc,
-#                     message=(
-#                         f"Duplicate ID '{obj_id}' detected. IDs must be globally unique. "
-#                         f"Occurrences: {locs_str}."
-#                     ),
-#                     suggestion="Rename IDs so each milestone/epic/task ID is unique.",
-#                 )
-#             )
-#     return issues
+    issues: list[ValidationIssue] = []
+    for obj_id, locs in occurrences.items():
+        if len(locs) <= 1:
+            continue
+        locs_str = ", ".join(locs)
+        for loc in locs:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.UNIQUENESS,
+                    location=loc,
+                    message=(
+                        f"Duplicate ID '{obj_id}' detected. IDs must be globally unique. "
+                        f"Occurrences: {locs_str}."
+                    ),
+                    suggestion="Rename IDs so each milestone/epic/task ID is unique.",
+                )
+            )
+    return issues
 
 
-# def _check_references(project: Project) -> list[ValidationIssue]:
-#     """Check referential integrity for parent links and dependencies."""
-#     milestone_ids = {m.id for m in project.milestones}
-#     epic_ids = {e.id for e in project.epics}
-#     task_ids = {t.id for t in project.tasks}
+def _check_references(project: Project) -> list[ValidationIssue]:
+    """Check referential integrity for parent links and dependencies."""
+    milestone_ids = {m.id for m in project.milestones}
+    epic_ids = {e.id for e in project.epics}
+    task_ids = {t.id for t in project.tasks}
 
-#     issues: list[ValidationIssue] = []
+    issues: list[ValidationIssue] = []
 
-#     for i, e in enumerate(project.epics):
-#         if e.parent_id not in milestone_ids:
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.REFERENTIAL,
-#                     location=f"$.epics[{i}].parent_id",
-#                     message=(
-#                         f"Epic parent_id '{e.parent_id}' does not reference an "
-#                         "existing milestone."
-#                     ),
-#                     suggestion="Set 'parent_id' to an existing milestone ID.",
-#                 )
-#             )
+    for i, e in enumerate(project.epics):
+        if e.parent_id not in milestone_ids:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.REFERENTIAL,
+                    location=f"$.epics[{i}].parent_id",
+                    message=(
+                        f"Epic parent_id '{e.parent_id}' does not reference an "
+                        "existing milestone."
+                    ),
+                    suggestion="Set 'parent_id' to an existing milestone ID.",
+                )
+            )
 
-#     for i, t in enumerate(project.tasks):
-#         parent_is_milestone = t.parent_link in milestone_ids
-#         parent_is_epic = t.parent_link in epic_ids
+    for i, t in enumerate(project.tasks):
+        parent_is_milestone = t.parent_link in milestone_ids
+        parent_is_epic = t.parent_link in epic_ids
 
-#         if not (parent_is_milestone or parent_is_epic):
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.REFERENTIAL,
-#                     location=f"$.tasks[{i}].parent_link",
-#                     message=(
-#                         f"Task parent_link '{t.parent_link}' does not reference an "
-#                         "existing milestone or epic."
-#                     ),
-#                     suggestion="Set 'parent_link' to an existing milestone ID or epic ID.",
-#                 )
-#             )
+        if not (parent_is_milestone or parent_is_epic):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.REFERENTIAL,
+                    location=f"$.tasks[{i}].parent_link",
+                    message=(
+                        f"Task parent_link '{t.parent_link}' does not reference an "
+                        "existing milestone or epic."
+                    ),
+                    suggestion="Set 'parent_link' to an existing milestone ID or epic ID.",
+                )
+            )
 
-#         if t.configuration == "Orpheline" and not parent_is_milestone:
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.PROTOCOL_RULE,
-#                     location=f"$.tasks[{i}].parent_link",
-#                     message=(
-#                         "Task configuration is 'Orpheline' but parent_link does not "
-#                         "reference a milestone."
-#                     ),
-#                     suggestion=(
-#                         "Either set parent_link to a milestone ID, or change the "
-#                         "task configuration."
-#                     ),
-#                 )
-#             )
+        if t.configuration == "Orpheline" and not parent_is_milestone:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.PROTOCOL_RULE,
+                    location=f"$.tasks[{i}].parent_link",
+                    message=(
+                        "Task configuration is 'Orpheline' but parent_link does not "
+                        "reference a milestone."
+                    ),
+                    suggestion=(
+                        "Either set parent_link to a milestone ID, or change the "
+                        "task configuration."
+                    ),
+                )
+            )
 
-#         if t.configuration == "Membre" and not parent_is_epic:
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.ERROR,
-#                     issue_type=IssueType.PROTOCOL_RULE,
-#                     location=f"$.tasks[{i}].parent_link",
-#                     message=(
-#                         "Task configuration is 'Membre' but parent_link does not "
-#                         "reference an epic."
-#                     ),
-#                     suggestion=(
-#                         "Either set parent_link to an epic ID, or change the task "
-#                         "configuration."
-#                     ),
-#                 )
-#             )
+        if t.configuration == "Membre" and not parent_is_epic:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.ERROR,
+                    issue_type=IssueType.PROTOCOL_RULE,
+                    location=f"$.tasks[{i}].parent_link",
+                    message=(
+                        "Task configuration is 'Membre' but parent_link does not "
+                        "reference an epic."
+                    ),
+                    suggestion=(
+                        "Either set parent_link to an epic ID, or change the task "
+                        "configuration."
+                    ),
+                )
+            )
 
-#         for j, dep in enumerate(t.depends_on):
-#             if dep not in task_ids:
-#                 issues.append(
-#                     ValidationIssue(
-#                         severity=Severity.ERROR,
-#                         issue_type=IssueType.REFERENTIAL,
-#                         location=f"$.tasks[{i}].depends_on[{j}]",
-#                         message=(
-#                             f"Dependency '{dep}' does not reference an existing task ID."
-#                         ),
-#                         suggestion="Replace it with an existing task ID or remove it.",
-#                     )
-#                 )
+        for j, dep in enumerate(t.depends_on):
+            if dep not in task_ids:
+                issues.append(
+                    ValidationIssue(
+                        severity=Severity.ERROR,
+                        issue_type=IssueType.REFERENTIAL,
+                        location=f"$.tasks[{i}].depends_on[{j}]",
+                        message=(
+                            f"Dependency '{dep}' does not reference an existing task ID."
+                        ),
+                        suggestion="Replace it with an existing task ID or remove it.",
+                    )
+                )
 
-#     return issues
-
-
-# def _resolve_task_milestone_id(project: Project) -> dict[str, str]:
-#     """Resolve each task's milestone ID using parent_link and epic.parent_id.
-
-#     Returns:
-#         Mapping: task_id -> milestone_id
-
-#     Notes:
-#         If a task parent_link points to a milestone, that is the milestone.
-#         If it points to an epic, milestone is epic.parent_id.
-#         If resolution is impossible, the task is omitted from the mapping.
-#         (Referential errors are handled elsewhere.)
-#     """
-#     epic_to_milestone = {e.id: e.parent_id for e in project.epics}
-#     milestone_ids = {m.id for m in project.milestones}
-
-#     mapping: dict[str, str] = {}
-#     for t in project.tasks:
-#         if t.parent_link in milestone_ids:
-#             mapping[t.id] = t.parent_link
-#         elif t.parent_link in epic_to_milestone:
-#             mapping[t.id] = epic_to_milestone[t.parent_link]
-#     return mapping
+    return issues
 
 
-# def _check_gate_milestone_empty(project: Project) -> list[ValidationIssue]:
-#     """Warn if a Gate milestone contains epics and/or tasks."""
-#     milestone_by_id = {m.id: m for m in project.milestones}
-#     epic_parent_map: dict[str, list[int]] = {}
-#     for i, e in enumerate(project.epics):
-#         epic_parent_map.setdefault(e.parent_id, []).append(i)
+def _check_gate_milestone_empty(project: Project) -> list[ValidationIssue]:
+    """Warn if a Gate milestone contains epics and/or tasks."""
+    milestone_by_id = {m.id: m for m in project.milestones}
+    epic_parent_map: dict[str, list[int]] = {}
+    for i, e in enumerate(project.epics):
+        epic_parent_map.setdefault(e.parent_id, []).append(i)
 
-#     task_to_milestone = _resolve_task_milestone_id(project)
-#     tasks_by_milestone: dict[str, list[int]] = {}
-#     for i, t in enumerate(project.tasks):
-#         ms_id = task_to_milestone.get(t.id)
-#         if ms_id is not None:
-#             tasks_by_milestone.setdefault(ms_id, []).append(i)
+    task_to_milestone = _resolve_task_milestone_id(project)
+    tasks_by_milestone: dict[str, list[int]] = {}
+    for i, t in enumerate(project.tasks):
+        ms_id = task_to_milestone.get(t.id)
+        if ms_id is not None:
+            tasks_by_milestone.setdefault(ms_id, []).append(i)
 
-#     issues: list[ValidationIssue] = []
-#     for i, m in enumerate(project.milestones):
-#         if m.configuration != "Gate":
-#             continue
+    issues: list[ValidationIssue] = []
+    for i, m in enumerate(project.milestones):
+        if m.configuration != "Gate":
+            continue
 
-#         epic_count = len(epic_parent_map.get(m.id, []))
-#         task_count = len(tasks_by_milestone.get(m.id, []))
-#         if epic_count == 0 and task_count == 0:
-#             continue
+        epic_count = len(epic_parent_map.get(m.id, []))
+        task_count = len(tasks_by_milestone.get(m.id, []))
+        if epic_count == 0 and task_count == 0:
+            continue
 
-#         issues.append(
-#             ValidationIssue(
-#                 severity=Severity.WARNING,
-#                 issue_type=IssueType.RECOMMENDATION,
-#                 location=f"$.milestones[{i}].configuration",
-#                 message=(
-#                     "Milestone configuration is 'Gate' but it contains content "
-#                     f"(epics: {epic_count}, tasks: {task_count}). A Gate milestone is "
-#                     "expected to be empty."
-#                 ),
-#                 suggestion=(
-#                     "Move epics/tasks to an 'Actif' milestone, or change the milestone "
-#                     "configuration to 'Actif'."
-#                 ),
-#             )
-#         )
+        issues.append(
+            ValidationIssue(
+                severity=Severity.WARNING,
+                issue_type=IssueType.RECOMMENDATION,
+                location=f"$.milestones[{i}].configuration",
+                message=(
+                    "Milestone configuration is 'Gate' but it contains content "
+                    f"(epics: {epic_count}, tasks: {task_count}). A Gate milestone is "
+                    "expected to be empty."
+                ),
+                suggestion=(
+                    "Move epics/tasks to an 'Actif' milestone, or change the milestone "
+                    "configuration to 'Actif'."
+                ),
+            )
+        )
 
-#     return issues
-
-
-# def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]:
-#     """Warn if a task depends on another task in a later milestone.
-
-#     Protocol statement: dependencies should ideally belong to the same milestone
-#     or an earlier milestone (warning if not).
-#     """
-#     milestone_index = {m.id: i for i, m in enumerate(project.milestones)}
-#     task_to_milestone = _resolve_task_milestone_id(project)
-
-#     task_to_milestone_index: dict[str, int] = {}
-#     for task_id, ms_id in task_to_milestone.items():
-#         if ms_id in milestone_index:
-#             task_to_milestone_index[task_id] = milestone_index[ms_id]
-
-#     issues: list[ValidationIssue] = []
-#     task_by_id = {t.id: (idx, t) for idx, t in enumerate(project.tasks)}
-
-#     for i, t in enumerate(project.tasks):
-#         cur_idx = task_to_milestone_index.get(t.id)
-#         if cur_idx is None:
-#             continue
-
-#         for j, dep_id in enumerate(t.depends_on):
-#             dep_idx = task_to_milestone_index.get(dep_id)
-#             if dep_idx is None:
-#                 continue
-#             if dep_idx > cur_idx:
-#                 issues.append(
-#                     ValidationIssue(
-#                         severity=Severity.WARNING,
-#                         issue_type=IssueType.RECOMMENDATION,
-#                         location=f"$.tasks[{i}].depends_on[{j}]",
-#                         message=(
-#                             f"Task depends on '{dep_id}', which belongs to a later "
-#                             "milestone. Dependencies should ideally be in the same or an "
-#                             "earlier milestone."
-#                         ),
-#                         suggestion=(
-#                             "Move the dependent task earlier, or adjust milestone ordering, "
-#                             "or revisit dependencies."
-#                         ),
-#                     )
-#                 )
-
-#     return issues
+    return issues
 
 
-# def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
-#     """Warn if IDs do not follow the recommended prefix conventions."""
-#     issues: list[ValidationIssue] = []
+def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]:
+    """Warn if a task depends on another task in a later milestone.
 
-#     for i, m in enumerate(project.milestones):
-#         if not m.id.startswith("M-"):
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.WARNING,
-#                     issue_type=IssueType.RECOMMENDATION,
-#                     location=f"$.milestones[{i}].id",
-#                     message=(
-#                         "Milestone ID does not follow the recommended prefix convention "
-#                         "('M-')."
-#                     ),
-#                     suggestion="Consider using IDs like 'M-01', 'M-02', etc.",
-#                 )
-#             )
+    Protocol statement: dependencies should ideally belong to the same milestone
+    or an earlier milestone (warning if not).
+    """
+    milestone_index = {m.id: i for i, m in enumerate(project.milestones)}
+    task_to_milestone = _resolve_task_milestone_id(project)
 
-#     for i, e in enumerate(project.epics):
-#         if not e.id.startswith("E-"):
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.WARNING,
-#                     issue_type=IssueType.RECOMMENDATION,
-#                     location=f"$.epics[{i}].id",
-#                     message=(
-#                         "Epic ID does not follow the recommended prefix convention ('E-')."
-#                     ),
-#                     suggestion="Consider using IDs like 'E-01', 'E-02', etc.",
-#                 )
-#             )
+    task_to_milestone_index: dict[str, int] = {}
+    for task_id, ms_id in task_to_milestone.items():
+        if ms_id in milestone_index:
+            task_to_milestone_index[task_id] = milestone_index[ms_id]
 
-#     for i, t in enumerate(project.tasks):
-#         if not t.id.startswith("T-"):
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.WARNING,
-#                     issue_type=IssueType.RECOMMENDATION,
-#                     location=f"$.tasks[{i}].id",
-#                     message=(
-#                         "Task ID does not follow the recommended prefix convention ('T-')."
-#                     ),
-#                     suggestion="Consider using IDs like 'T-01', 'T-02', etc.",
-#                 )
-#             )
+    issues: list[ValidationIssue] = []
+    task_by_id = {t.id: (idx, t) for idx, t in enumerate(project.tasks)}
 
-#     return issues
+    for i, t in enumerate(project.tasks):
+        cur_idx = task_to_milestone_index.get(t.id)
+        if cur_idx is None:
+            continue
+
+        for j, dep_id in enumerate(t.depends_on):
+            dep_idx = task_to_milestone_index.get(dep_id)
+            if dep_idx is None:
+                continue
+            if dep_idx > cur_idx:
+                issues.append(
+                    ValidationIssue(
+                        severity=Severity.WARNING,
+                        issue_type=IssueType.RECOMMENDATION,
+                        location=f"$.tasks[{i}].depends_on[{j}]",
+                        message=(
+                            f"Task depends on '{dep_id}', which belongs to a later "
+                            "milestone. Dependencies should ideally be in the same or an "
+                            "earlier milestone."
+                        ),
+                        suggestion=(
+                            "Move the dependent task earlier, or adjust milestone ordering, "
+                            "or revisit dependencies."
+                        ),
+                    )
+                )
+
+    return issues
 
 
-# def _check_missing_descriptions(project: Project) -> list[ValidationIssue]:
-#     """Warn when description is missing or null, as required by the protocol."""
-#     issues: list[ValidationIssue] = []
+def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
+    """Warn if IDs do not follow the recommended prefix conventions."""
+    issues: list[ValidationIssue] = []
 
-#     def warn_if_missing(value: str | None, location: str) -> None:
-#         if value is None:
-#             issues.append(
-#                 ValidationIssue(
-#                     severity=Severity.WARNING,
-#                     issue_type=IssueType.RECOMMENDATION,
-#                     location=location,
-#                     message="Consider adding a description to improve project clarity.",
-#                     suggestion="Provide a non-null 'description' string.",
-#                 )
-#             )
+    for i, m in enumerate(project.milestones):
+        if not m.id.startswith("M-"):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=f"$.milestones[{i}].id",
+                    message=(
+                        "Milestone ID does not follow the recommended prefix convention "
+                        "('M-')."
+                    ),
+                    suggestion="Consider using IDs like 'M-01', 'M-02', etc.",
+                )
+            )
 
-#     warn_if_missing(project.metadata.description, "$.metadata.description")
+    for i, e in enumerate(project.epics):
+        if not e.id.startswith("E-"):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=f"$.epics[{i}].id",
+                    message=(
+                        "Epic ID does not follow the recommended prefix convention ('E-')."
+                    ),
+                    suggestion="Consider using IDs like 'E-01', 'E-02', etc.",
+                )
+            )
 
-#     for i, m in enumerate(project.milestones):
-#         warn_if_missing(m.description, f"$.milestones[{i}].description")
-#     for i, e in enumerate(project.epics):
-#         warn_if_missing(e.description, f"$.epics[{i}].description")
-#     for i, t in enumerate(project.tasks):
-#         warn_if_missing(t.description, f"$.tasks[{i}].description")
+    for i, t in enumerate(project.tasks):
+        if not t.id.startswith("T-"):
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=f"$.tasks[{i}].id",
+                    message=(
+                        "Task ID does not follow the recommended prefix convention ('T-')."
+                    ),
+                    suggestion="Consider using IDs like 'T-01', 'T-02', etc.",
+                )
+            )
 
-#     return issues
+    return issues
 
 
+def _check_missing_descriptions(project: Project) -> list[ValidationIssue]:
+    """Warn when description is missing or null, as required by the protocol."""
+    issues: list[ValidationIssue] = []
+
+    def warn_if_missing(value: str | None, location: str) -> None:
+        if value is None:
+            issues.append(
+                ValidationIssue(
+                    severity=Severity.WARNING,
+                    issue_type=IssueType.RECOMMENDATION,
+                    location=location,
+                    message="Consider adding a description to improve project clarity.",
+                    suggestion="Provide a non-null 'description' string.",
+                )
+            )
+
+    warn_if_missing(project.metadata.description, "$.metadata.description")
+
+    for i, m in enumerate(project.milestones):
+        warn_if_missing(m.description, f"$.milestones[{i}].description")
+    for i, e in enumerate(project.epics):
+        warn_if_missing(e.description, f"$.epics[{i}].description")
+    for i, t in enumerate(project.tasks):
+        warn_if_missing(t.description, f"$.tasks[{i}].description")
+
+    return issues
+
+
+# --- Orchestration
 def _parse_with_pydantic(data: Any) -> tuple[Project | None, list[ValidationIssue]]:
     """Parse and validate the project structurally with Pydantic.
 
@@ -567,61 +649,6 @@ def validate_project_data(data: Any) -> ValidationReport:
     issues.extend(_check_missing_descriptions(project))
 
     return ValidationReport(issues=issues)
-
-
-def _print_report(report: ValidationReport) -> None:
-    """Print a human-readable validation report to stdout.
-    
-    Formats and displays all validation issues grouped by severity and type,
-    with suggestions when available. Also shows a final summary indicating
-    whether the project is valid or not.
-    
-    Args:
-        report: The ValidationReport object containing all detected issues.
-    
-    Returns:
-        None. Output is printed directly to stdout.
-    
-    Notes:
-        - If no issues are found, prints a success message.
-        - Issues are formatted as: [SEVERITY] (type) location: message
-        - Suggestions are indented and prefixed with "Suggestion:"
-        - Final result line indicates validity status based on presence of errors.
-    """
-
-    if not report.issues:
-        print("No issues detected. Project is valid.")
-        return
-
-    print("Validation report:")
-    for issue in report.issues:
-        print(
-            f"- [{issue.severity.value.upper()}] "
-            f"({issue.issue_type.value}) {issue.location}: {issue.message}"
-        )
-        if issue.suggestion:
-            print(f"  Suggestion: {issue.suggestion}")
-
-    if report.has_errors():
-        print("\nResult: INVALID (blocking errors detected).")
-    else:
-        print("\nResult: VALID (warnings detected, but no blocking errors).")
-
-
-def _read_json_file(file_path: Path) -> Any:
-    """Read and parse a JSON file.
-
-    Args:
-        file_path: Path to a JSON file.
-
-    Returns:
-        Parsed JSON content.
-
-    Raises:
-        OSError: If the file cannot be read.
-        json.JSONDecodeError: If the file is not valid JSON.
-    """
-    return json.loads(file_path.read_text(encoding="utf-8"))
 
 
 def validate_project_file(file_path: str | Path) -> bool:
@@ -679,7 +706,7 @@ def validate_project_file(file_path: str | Path) -> bool:
 def _build_arg_parser() -> argparse.ArgumentParser:
     """Create the CLI argument parser."""
 
-    # --- CLI arguments descriptions
+    # --- CLI descriptions (summary & arguments)
     summary = "Validate a project JSON file against SPEC-1.0.0."
     plan_help = "Path to the JSON file to validate."
 
