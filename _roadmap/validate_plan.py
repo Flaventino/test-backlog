@@ -478,11 +478,27 @@ def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]
     """Warn if a task depends on another task in a later milestone.
 
     Protocol statement: dependencies should ideally belong to the same milestone
-    or an earlier milestone (warning if not).
+    or an earlier milestone (warning if not). This checker emits a warning for
+    each dependency that targets a task assigned to a later milestone.
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (ValidationIssue objects), specifically
+        configured as WARNINGS of RECOMMENDATION type for each dependency
+        pointing to a later milestone.
+
+    Notes:
+        Only dependencies between tasks with resolvable milestone assignments
+        are evaluated.
     """
+
+    # --- Build milestone index map
     milestone_index = {m.id: i for i, m in enumerate(project.milestones)}
     task_to_milestone = _resolve_task_milestone_id(project)
 
+    # --- Resomve task locations with respect to milestones
     task_to_milestone_index: dict[str, int] = {}
     for task_id, ms_id in task_to_milestone.items():
         if ms_id in milestone_index:
@@ -491,6 +507,7 @@ def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]
     issues: list[ValidationIssue] = []
     task_by_id = {t.id: (idx, t) for idx, t in enumerate(project.tasks)}
 
+    # --- Check each task's dependencies
     for i, t in enumerate(project.tasks):
         cur_idx = task_to_milestone_index.get(t.id)
         if cur_idx is None:
@@ -522,9 +539,31 @@ def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]
 
 
 def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
-    """Warn if IDs do not follow the recommended prefix conventions."""
+    """Warn if IDs do not follow the recommended prefix conventions.
+
+    While not structurally mandatory, adhering to the protocol's naming
+    convention improves readability and allows distinguishing component types
+    by their ID alone.
+
+    The expected prefixes are:
+      * Milestones : 'M-' (e.g., M-01)
+      * Epics      : 'E-' (e.g., E-05)
+      * Tasks      : 'T-' (e.g., T-102)
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (ValidationIssue objects), specifically
+        configured as WARNINGS of RECOMMENDATION type for each ID violating
+        the prefix convention.
+
+    Notes:
+        This checker only verifies prefixes, not the full ID format.
+    """
     issues: list[ValidationIssue] = []
 
+    # --- Check Milestones
     for i, m in enumerate(project.milestones):
         if not m.id.startswith("M-"):
             issues.append(
@@ -540,6 +579,7 @@ def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
                 )
             )
 
+    # --- Check Epics
     for i, e in enumerate(project.epics):
         if not e.id.startswith("E-"):
             issues.append(
@@ -554,6 +594,7 @@ def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
                 )
             )
 
+    # --- Check Tasks
     for i, t in enumerate(project.tasks):
         if not t.id.startswith("T-"):
             issues.append(
@@ -583,12 +624,13 @@ def _check_missing_descriptions(project: Project) -> list[ValidationIssue]:
         project: Validated Project instance.
 
     Returns:
-        A list of validation issues (containing only warnings) for every missing
-        description found.
+        A list of validation issues (ValidationIssue objects), specifically
+        configured as WARNINGS of RECOMMENDATION type for each missing
+        description detected.
 
     Notes:
-        A description is considered missing only when its value is None.
-        Empty strings are not currently treated as missing.
+        A description is considered missing only when its value is None; empty
+        strings are not currently treated as missing.
     """
 
     # --- Initialization & Helper function definition to append warnings
