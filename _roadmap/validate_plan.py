@@ -291,15 +291,15 @@ def _resolve_task_milestone_id(project: Project) -> dict[str, str]:
         If resolution is impossible, the task is omitted from the mapping.
         (Referential errors are handled elsewhere.)
     """
-    epic_to_milestone = {e.id: e.parent_id for e in project.epics}
-    milestone_ids = {m.id for m in project.milestones}
+    epic_to_milestone = {epic.id: epic.parent_id for epic in project.epics}
+    milestone_ids = {milestone.id for milestone in project.milestones}
 
     mapping: dict[str, str] = {}
-    for t in project.tasks:
-        if t.parent_link in milestone_ids:
-            mapping[t.id] = t.parent_link
-        elif t.parent_link in epic_to_milestone:
-            mapping[t.id] = epic_to_milestone[t.parent_link]
+    for task in project.tasks:
+        if task.parent_link in milestone_ids:
+            mapping[task.id] = task.parent_link
+        elif task.parent_link in epic_to_milestone:
+            mapping[task.id] = epic_to_milestone[task.parent_link]
     return mapping
   
 
@@ -572,10 +572,30 @@ def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
 
 
 def _check_missing_descriptions(project: Project) -> list[ValidationIssue]:
-    """Warn when description is missing or null, as required by the protocol."""
+    """Warn when 'description' fields are missing (null) across the project.
+
+    According to protocol requirements, this checker inspects metadata,
+    milestones, epics, and tasks, then emits non-blocking recommendations to
+    improve roadmap clarity.
+    It does not enforce the presence of descriptions as a structural requirement.
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (containing only warnings) for every missing
+        description found.
+
+    Notes:
+        A description is considered missing only when its value is None.
+        Empty strings are not currently treated as missing.
+    """
+
+    # --- Initialization & Helper function definition to append warnings
     issues: list[ValidationIssue] = []
 
     def warn_if_missing(value: str | None, location: str) -> None:
+        """Append a warning issue to the parent list if the value is None."""
         if value is None:
             issues.append(
                 ValidationIssue(
@@ -587,12 +607,18 @@ def _check_missing_descriptions(project: Project) -> list[ValidationIssue]:
                 )
             )
 
+    # --- Check Metadata
     warn_if_missing(project.metadata.description, "$.metadata.description")
 
+    # --- Check Milestones
     for i, m in enumerate(project.milestones):
         warn_if_missing(m.description, f"$.milestones[{i}].description")
+
+    # --- Check Epics
     for i, e in enumerate(project.epics):
         warn_if_missing(e.description, f"$.epics[{i}].description")
+
+    # --- Check Tasks
     for i, t in enumerate(project.tasks):
         warn_if_missing(t.description, f"$.tasks[{i}].description")
 
