@@ -307,9 +307,28 @@ def _resolve_task_milestone_id(project: Project) -> dict[str, str]:
 
 # --- Top-Level rules
 def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
-    """Check global uniqueness of IDs across milestones, epics and tasks."""
+    """Check global uniqueness of IDs across milestones, epics and tasks.
+
+    Ensures that every 'id' value is unique across all object types. When a
+    duplicate is found, each occurrence is reported as a blocking error, and
+    the message mentions all occurrence locations.
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (ValidationIssue objects), specifically
+        configured as ERRORS of UNIQUENESS type for each duplicate ID set
+        detected.
+
+    Notes:
+        This checker only detects collisions; it does not validate ID format.
+    """
+
+    # --- Create a dict to map IDs to their occurrence locations
     occurrences: dict[str, list[str]] = {}
 
+    # --- Collect occurrences from milestones, epics, and tasks
     for i, m in enumerate(project.milestones):
         occurrences.setdefault(m.id, []).append(f"$.milestones[{i}].id")
     for i, e in enumerate(project.epics):
@@ -317,6 +336,7 @@ def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
     for i, t in enumerate(project.tasks):
         occurrences.setdefault(t.id, []).append(f"$.tasks[{i}].id")
 
+    # --- Evaluate occurrences and generate issues for duplicates
     issues: list[ValidationIssue] = []
     for obj_id, locs in occurrences.items():
         if len(locs) <= 1:
@@ -339,13 +359,36 @@ def _check_global_id_uniqueness(project: Project) -> list[ValidationIssue]:
 
 
 def _check_references(project: Project) -> list[ValidationIssue]:
-    """Check referential integrity for parent links and dependencies."""
+    """Check referential integrity for parent links and dependencies.
+
+    Validates that:
+    - epic.parent_id references an existing milestone ID;
+    - task.parent_link references an existing milestone ID or epic ID;
+    - each task.depends_on entry references an existing task ID.
+
+    Also enforces protocol constraints tied to task configuration:
+    - 'Orpheline' tasks must link to a milestone;
+    - 'Membre' tasks must link to an epic.
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (ValidationIssue objects), specifically
+        configured as ERRORS of REFERENTIAL or PROTOCOL_RULE type for each
+        invalid reference or configuration violation detected.
+
+    Notes:
+        Assumes structural validation already succeeded (fields exist).
+    """
+
+    # --- Build ID sets for reference checks
     milestone_ids = {m.id for m in project.milestones}
     epic_ids = {e.id for e in project.epics}
     task_ids = {t.id for t in project.tasks}
 
+    # --- Check epic parent_id references
     issues: list[ValidationIssue] = []
-
     for i, e in enumerate(project.epics):
         if e.parent_id not in milestone_ids:
             issues.append(
@@ -361,10 +404,13 @@ def _check_references(project: Project) -> list[ValidationIssue]:
                 )
             )
 
+    # --- Check task parent_link references and configuration rules
     for i, t in enumerate(project.tasks):
+        # --- Check parent nature for easier rule evaluation
         parent_is_milestone = t.parent_link in milestone_ids
         parent_is_epic = t.parent_link in epic_ids
 
+        # Check parent_link integrity
         if not (parent_is_milestone or parent_is_epic):
             issues.append(
                 ValidationIssue(
@@ -379,6 +425,7 @@ def _check_references(project: Project) -> list[ValidationIssue]:
                 )
             )
 
+        # Check protocol rules (configuration vs. parent type)
         if t.configuration == "Orpheline" and not parent_is_milestone:
             issues.append(
                 ValidationIssue(
@@ -413,6 +460,7 @@ def _check_references(project: Project) -> list[ValidationIssue]:
                 )
             )
 
+        # Check depedencies integrity
         for j, dep in enumerate(t.depends_on):
             if dep not in task_ids:
                 issues.append(
@@ -431,12 +479,32 @@ def _check_references(project: Project) -> list[ValidationIssue]:
 
 
 def _check_gate_milestone_empty(project: Project) -> list[ValidationIssue]:
-    """Warn if a Gate milestone contains epics and/or tasks."""
+    """Warn if a Gate milestone contains epics and/or tasks.
+
+    According to the protocol guidance, a milestone configured as 'Gate' is
+    expected to be empty. This checker emits a warning when any epic or task
+    is attached to a 'Gate' milestone.
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (ValidationIssue objects), specifically
+        configured as WARNINGS of RECOMMENDATION type for each non-empty
+        Gate milestone detected.
+
+    Notes:
+        Task-to-milestone association is resolved via _resolve_task_milestone_id.
+        Indirect associations (Task -> Epic -> Milestone) are accounted for.
+    """
+
+    # --- Map epics to their respective milestones
     milestone_by_id = {m.id: m for m in project.milestones}
     epic_parent_map: dict[str, list[int]] = {}
     for i, e in enumerate(project.epics):
         epic_parent_map.setdefault(e.parent_id, []).append(i)
 
+    # --- Map tasks to their respective milestones
     task_to_milestone = _resolve_task_milestone_id(project)
     tasks_by_milestone: dict[str, list[int]] = {}
     for i, t in enumerate(project.tasks):
@@ -444,6 +512,7 @@ def _check_gate_milestone_empty(project: Project) -> list[ValidationIssue]:
         if ms_id is not None:
             tasks_by_milestone.setdefault(ms_id, []).append(i)
 
+    # --- Check each Gate milestone for content
     issues: list[ValidationIssue] = []
     for i, m in enumerate(project.milestones):
         if m.configuration != "Gate":
@@ -498,16 +567,14 @@ def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]
     milestone_index = {m.id: i for i, m in enumerate(project.milestones)}
     task_to_milestone = _resolve_task_milestone_id(project)
 
-    # --- Resomve task locations with respect to milestones
+    # --- Resolve task locations with respect to milestones
     task_to_milestone_index: dict[str, int] = {}
     for task_id, ms_id in task_to_milestone.items():
         if ms_id in milestone_index:
             task_to_milestone_index[task_id] = milestone_index[ms_id]
 
-    issues: list[ValidationIssue] = []
-    task_by_id = {t.id: (idx, t) for idx, t in enumerate(project.tasks)}
-
     # --- Check each task's dependencies
+    issues: list[ValidationIssue] = []    
     for i, t in enumerate(project.tasks):
         cur_idx = task_to_milestone_index.get(t.id)
         if cur_idx is None:
