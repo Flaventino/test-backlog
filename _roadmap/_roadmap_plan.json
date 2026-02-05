@@ -1,0 +1,440 @@
+{
+  "metadata": {
+    "projet_nom": "Plateforme SaaS de Gestion de Projet",
+    "version_protocole": "SPEC-1.0.0",
+    "description": "Développement d'une plateforme SaaS complète de gestion de projet avec architecture multi-tenant, intégrations tierces et analytiques avancées"
+  },
+  "milestones": [
+    {
+      "id": "M-01",
+      "titre": "Foundation & Architecture",
+      "configuration": "Actif",
+      "start_delay": 0,
+      "duration": 30,
+      "description": "Mise en place de l'infrastructure de base, architecture technique et outils de développement"
+    },
+    {
+      "id": "M-02",
+      "titre": "Core Features MVP",
+      "configuration": "Actif",
+      "start_delay": 0,
+      "duration": 45,
+      "description": "Développement des fonctionnalités essentielles pour un MVP fonctionnel"
+    },
+    {
+      "id": "M-03",
+      "titre": "Beta Release Gate",
+      "configuration": "Gate",
+      "start_delay": 0,
+      "duration": 7,
+      "description": "Point de contrôle avant lancement bêta publique"
+    },
+    {
+      "id": "M-04",
+      "titre": "Advanced Features",
+      "configuration": "Actif",
+      "start_delay": 0,
+      "duration": 60,
+      "description": "Développement des fonctionnalités avancées et intégrations"
+    },
+    {
+      "id": "M-05",
+      "titre": "Production Launch",
+      "configuration": "Actif",
+      "start_delay": 0,
+      "duration": 21,
+      "description": "Préparation et déploiement en production"
+    }
+  ],
+  "epics": [
+    {
+      "id": "E-01",
+      "parent_id": "M-01",
+      "titre": "Infrastructure Setup",
+      "configuration": "Standard",
+      "label": "infrastructure",
+      "description": "Configuration de l'environnement cloud, CI/CD et monitoring"
+    },
+    {
+      "id": "E-02",
+      "parent_id": "M-01",
+      "titre": "Technical Architecture",
+      "configuration": "Standard",
+      "label": "architecture",
+      "description": "Design et documentation de l'architecture technique globale"
+    },
+    {
+      "id": "E-03",
+      "parent_id": "M-02",
+      "titre": "Authentication & User Management",
+      "configuration": "Standard",
+      "label": "auth",
+      "description": "Système d'authentification complet avec gestion multi-tenant"
+    },
+    {
+      "id": "E-04",
+      "parent_id": "M-02",
+      "titre": "Project Management Core",
+      "configuration": "Standard",
+      "label": "core",
+      "description": "Fonctionnalités de base pour la gestion de projets"
+    },
+    {
+      "id": "E-05",
+      "parent_id": "M-02",
+      "titre": "Team Collaboration",
+      "configuration": "Standard",
+      "label": "collaboration",
+      "description": "Outils de collaboration en temps réel pour les équipes"
+    },
+    {
+      "id": "E-06",
+      "parent_id": "M-04",
+      "titre": "Advanced Analytics",
+      "configuration": "Standard",
+      "label": "analytics",
+      "description": "Tableaux de bord et rapports avancés"
+    },
+    {
+      "id": "E-07",
+      "parent_id": "M-04",
+      "titre": "Third-party Integrations",
+      "configuration": "Standard",
+      "label": "integrations",
+      "description": "Intégrations avec outils externes (Slack, GitHub, etc.)"
+    },
+    {
+      "id": "E-08",
+      "parent_id": "M-04",
+      "titre": "AI/ML Features",
+      "configuration": "Discovery",
+      "label": "ai-research",
+      "description": "Recherche et prototypage de fonctionnalités IA"
+    },
+    {
+      "id": "E-09",
+      "parent_id": "M-05",
+      "titre": "Production Readiness",
+      "configuration": "Standard",
+      "label": "production",
+      "description": "Préparation finale pour le déploiement en production"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-001",
+      "parent_link": "E-01",
+      "titre": "Provisionner environnement AWS/GCP",
+      "configuration": "Membre",
+      "estimate": 16,
+      "depends_on": [],
+      "description": "Configuration VPC, subnets, security groups, RDS instances"
+    },
+    {
+      "id": "T-002",
+      "parent_link": "E-01",
+      "titre": "Configurer pipeline CI/CD",
+      "configuration": "Sequentielle",
+      "estimate": 12,
+      "depends_on": ["T-001"],
+      "description": "GitHub Actions ou GitLab CI avec déploiement automatisé"
+    },
+    {
+      "id": "T-003",
+      "parent_link": "E-01",
+      "titre": "Mettre en place monitoring (Datadog/Prometheus)",
+      "configuration": "Sequentielle",
+      "estimate": 8,
+      "depends_on": ["T-001"],
+      "description": "Dashboards, alertes et métriques système"
+    },
+    {
+      "id": "T-004",
+      "parent_link": "E-02",
+      "titre": "Définir architecture microservices/monolithe",
+      "configuration": "Membre",
+      "estimate": 20,
+      "depends_on": [],
+      "description": "ADR (Architecture Decision Records) et diagrammes C4"
+    },
+    {
+      "id": "T-005",
+      "parent_link": "E-02",
+      "titre": "Designer schéma base de données",
+      "configuration": "Sequentielle",
+      "estimate": 16,
+      "depends_on": ["T-004"],
+      "description": "Modèle relationnel avec stratégie multi-tenant"
+    },
+    {
+      "id": "T-006",
+      "parent_link": "E-02",
+      "titre": "Documenter API specifications (OpenAPI)",
+      "configuration": "Sequentielle",
+      "estimate": 12,
+      "depends_on": ["T-004"],
+      "description": "Documentation complète des endpoints REST/GraphQL"
+    },
+    {
+      "id": "T-007",
+      "parent_link": "E-03",
+      "titre": "Implémenter JWT authentication",
+      "configuration": "Membre",
+      "estimate": 16,
+      "depends_on": [],
+      "description": "Tokens, refresh mechanism, revocation"
+    },
+    {
+      "id": "T-008",
+      "parent_link": "E-03",
+      "titre": "Créer système RBAC (Role-Based Access Control)",
+      "configuration": "Sequentielle",
+      "estimate": 20,
+      "depends_on": ["T-007"],
+      "description": "Roles, permissions, hierarchies"
+    },
+    {
+      "id": "T-009",
+      "parent_link": "E-03",
+      "titre": "Développer gestion multi-tenant",
+      "configuration": "Sequentielle",
+      "estimate": 24,
+      "depends_on": ["T-005", "T-007"],
+      "description": "Isolation des données, tenant switching"
+    },
+    {
+      "id": "T-010",
+      "parent_link": "E-03",
+      "titre": "Intégrer OAuth2 providers (Google, GitHub)",
+      "configuration": "Sequentielle",
+      "estimate": 12,
+      "depends_on": ["T-007"],
+      "description": "Social login avec stratégie unifiée"
+    },
+    {
+      "id": "T-011",
+      "parent_link": "E-04",
+      "titre": "CRUD projets et tâches",
+      "configuration": "Membre",
+      "estimate": 20,
+      "depends_on": [],
+      "description": "API endpoints et modèles de données"
+    },
+    {
+      "id": "T-012",
+      "parent_link": "E-04",
+      "titre": "Implémenter système de tags et labels",
+      "configuration": "Sequentielle",
+      "estimate": 8,
+      "depends_on": ["T-011"],
+      "description": "Taxonomie flexible et recherche par tags"
+    },
+    {
+      "id": "T-013",
+      "parent_link": "E-04",
+      "titre": "Développer gestion des deadlines et milestones",
+      "configuration": "Sequentielle",
+      "estimate": 12,
+      "depends_on": ["T-011"],
+      "description": "Calendrier, notifications, calcul burndown"
+    },
+    {
+      "id": "T-014",
+      "parent_link": "E-04",
+      "titre": "Créer vues Kanban/Gantt",
+      "configuration": "Sequentielle",
+      "estimate": 24,
+      "depends_on": ["T-011"],
+      "description": "Interfaces interactives avec drag-and-drop"
+    },
+    {
+      "id": "T-015",
+      "parent_link": "E-05",
+      "titre": "Implémenter système de commentaires",
+      "configuration": "Membre",
+      "estimate": 12,
+      "depends_on": [],
+      "description": "Threading, mentions, notifications"
+    },
+    {
+      "id": "T-016",
+      "parent_link": "E-05",
+      "titre": "Développer notifications en temps réel (WebSocket)",
+      "configuration": "Membre",
+      "estimate": 16,
+      "depends_on": [],
+      "description": "Event streaming avec Socket.io ou similaire"
+    },
+    {
+      "id": "T-017",
+      "parent_link": "E-05",
+      "titre": "Créer système de fichiers attachés",
+      "configuration": "Sequentielle",
+      "estimate": 16,
+      "depends_on": ["T-001"],
+      "description": "Upload S3, preview, versioning"
+    },
+    {
+      "id": "T-018",
+      "parent_link": "E-05",
+      "titre": "Implémenter activity feed",
+      "configuration": "Sequentielle",
+      "estimate": 12,
+      "depends_on": ["T-015", "T-016"],
+      "description": "Historique des actions utilisateur"
+    },
+    {
+      "id": "T-019",
+      "parent_link": "M-02",
+      "titre": "Tests end-to-end MVP",
+      "configuration": "Orpheline",
+      "estimate": 20,
+      "depends_on": ["T-014", "T-018"],
+      "description": "Cypress/Playwright pour parcours utilisateur critiques"
+    },
+    {
+      "id": "T-020",
+      "parent_link": "M-02",
+      "titre": "Audit sécurité initial",
+      "configuration": "Orpheline",
+      "estimate": 16,
+      "depends_on": ["T-009", "T-010"],
+      "description": "Penetration testing, OWASP Top 10"
+    },
+    {
+      "id": "T-021",
+      "parent_link": "E-06",
+      "titre": "Développer dashboard analytics",
+      "configuration": "Membre",
+      "estimate": 24,
+      "depends_on": [],
+      "description": "Métriques projet, vélocité, burndown charts"
+    },
+    {
+      "id": "T-022",
+      "parent_link": "E-06",
+      "titre": "Créer rapports exportables (PDF/Excel)",
+      "configuration": "Sequentielle",
+      "estimate": 16,
+      "depends_on": ["T-021"],
+      "description": "Templates personnalisables avec branding"
+    },
+    {
+      "id": "T-023",
+      "parent_link": "E-06",
+      "titre": "Implémenter prédictions basées sur données historiques",
+      "configuration": "Sequentielle",
+      "estimate": 28,
+      "depends_on": ["T-021"],
+      "description": "Modèles de forecasting pour deadlines"
+    },
+    {
+      "id": "T-024",
+      "parent_link": "E-07",
+      "titre": "Intégration Slack (webhooks, slash commands)",
+      "configuration": "Membre",
+      "estimate": 16,
+      "depends_on": [],
+      "description": "Notifications bidirectionnelles et commandes"
+    },
+    {
+      "id": "T-025",
+      "parent_link": "E-07",
+      "titre": "Intégration GitHub (sync issues, PRs)",
+      "configuration": "Membre",
+      "estimate": 20,
+      "depends_on": [],
+      "description": "Webhooks pour synchronisation automatique"
+    },
+    {
+      "id": "T-026",
+      "parent_link": "E-07",
+      "titre": "Intégration Google Calendar",
+      "configuration": "Membre",
+      "estimate": 12,
+      "depends_on": [],
+      "description": "Sync événements et deadlines"
+    },
+    {
+      "id": "T-027",
+      "parent_link": "E-07",
+      "titre": "API publique pour intégrations tierces",
+      "configuration": "Sequentielle",
+      "estimate": 24,
+      "depends_on": ["T-006"],
+      "description": "Rate limiting, API keys, documentation"
+    },
+    {
+      "id": "T-028",
+      "parent_link": "E-08",
+      "titre": "Prototyper auto-assignment de tâches par ML",
+      "configuration": "Membre",
+      "estimate": 32,
+      "depends_on": [],
+      "description": "Algorithme basé sur compétences et historique"
+    },
+    {
+      "id": "T-029",
+      "parent_link": "E-08",
+      "titre": "Rechercher NLP pour extraction automatique de tasks",
+      "configuration": "Membre",
+      "estimate": 28,
+      "depends_on": [],
+      "description": "POC avec GPT/BERT pour parsing de documents"
+    },
+    {
+      "id": "T-030",
+      "parent_link": "E-09",
+      "titre": "Optimisation performances et caching",
+      "configuration": "Membre",
+      "estimate": 20,
+      "depends_on": [],
+      "description": "Redis, CDN, query optimization"
+    },
+    {
+      "id": "T-031",
+      "parent_link": "E-09",
+      "titre": "Tests de charge et scalabilité",
+      "configuration": "Sequentielle",
+      "estimate": 16,
+      "depends_on": ["T-030"],
+      "description": "JMeter/k6 pour simulation haute charge"
+    },
+    {
+      "id": "T-032",
+      "parent_link": "E-09",
+      "titre": "Audit sécurité complet",
+      "configuration": "Membre",
+      "estimate": 24,
+      "depends_on": [],
+      "description": "Audit externe, compliance SOC2/GDPR"
+    },
+    {
+      "id": "T-033",
+      "parent_link": "E-09",
+      "titre": "Documentation utilisateur et admin",
+      "configuration": "Membre",
+      "estimate": 20,
+      "depends_on": [],
+      "description": "Guides, FAQ, videos tutoriels"
+    },
+    {
+      "id": "T-034",
+      "parent_link": "E-09",
+      "titre": "Plan de migration et rollback",
+      "configuration": "Sequentielle",
+      "estimate": 12,
+      "depends_on": ["T-031", "T-032"],
+      "description": "Stratégie blue-green deployment"
+    },
+    {
+      "id": "T-035",
+      "parent_link": "M-05",
+      "titre": "Déploiement production final",
+      "configuration": "Orpheline",
+      "estimate": 8,
+      "depends_on": ["T-034"],
+      "description": "Go-live avec monitoring temps réel"
+    }
+  ]
+}
