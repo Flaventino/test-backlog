@@ -605,6 +605,98 @@ def _check_dependency_milestone_order(project: Project) -> list[ValidationIssue]
     return issues
 
 
+def _check_dependency_cycles(project: Project) -> list[ValidationIssue]:
+    """Detect cycles in task dependencies.
+
+    A dependency graph is built using 'depends_on'. Any cycle means no valid
+    execution ordering exists, resulting in an infinite dependency loop.
+
+    Args:
+        project: Validated Project instance.
+
+    Returns:
+        A list of validation issues (ValidationIssue objects), configured as
+        blocking ERRORS of PROTOCOL_RULE type for each detected cycle.
+
+    Notes:
+        - Only dependencies that reference existing task IDs are considered.
+          Invalid references are handled by _check_references.
+        - Multiple cycles may be reported if they exist.
+    """
+
+    # --- Helper functions
+    def canonicalize_cycle(nodes: list[str]) -> tuple[str, ...]:
+        """Return a stable representation for a directed cycle."""
+        if not nodes:
+            return tuple()
+        start = min(nodes)
+        idx = nodes.index(start)
+        rotated = nodes[idx:] + nodes[:idx]
+        return tuple(rotated)
+
+    def dfs(node: str) -> None:
+        """Depth-first search used for cycle detection."""
+        visited.add(node)
+        in_stack.add(node)
+        stack.append(node)
+
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                dfs(neighbor)
+            elif neighbor in in_stack:
+                start_index = stack.index(neighbor)
+                cycle_nodes = stack[start_index:]
+                canonical = canonicalize_cycle(cycle_nodes)
+                if canonical and canonical not in seen_cycles:
+                    seen_cycles.add(canonical)
+                    cycles.append(list(canonical) + [canonical[0]])
+
+        stack.pop()
+        in_stack.remove(node)
+
+    # --- Build dependency graph
+    task_index_by_id = {t.id: i for i, t in enumerate(project.tasks)}
+    task_ids = set(task_index_by_id)
+
+    graph: dict[str, list[str]] = {}
+    for t in project.tasks:
+        graph[t.id] = [dep for dep in t.depends_on if dep in task_ids]
+
+    # --- Lookup for dependency cycles
+    # 1. Initialize traversal state
+    visited: set[str] = set()
+    in_stack: set[str] = set()
+    stack: list[str] = []
+
+    seen_cycles: set[tuple[str, ...]] = set()
+    cycles: list[list[str]] = []
+
+    # 2. Execute DFS on all nodes
+    for node in graph:
+        if node not in visited:
+            dfs(node)
+
+    # --- Build validation issues from detected cycles
+    issues: list[ValidationIssue] = []
+    for cycle in cycles:
+        first = cycle[0]
+        idx = task_index_by_id.get(first)
+        location = f"$.tasks[{idx}].depends_on" if idx is not None else "$.tasks"
+        cycle_str = " -> ".join(cycle)
+
+        issues.append(
+            ValidationIssue(
+                severity=Severity.ERROR,
+                issue_type=IssueType.PROTOCOL_RULE,
+                location=location,
+                message=f"Dependency cycle detected among tasks: {cycle_str}.",
+                suggestion="Remove or change at least one dependency to break the cycle.",
+            )
+        )
+
+    return issues
+
+
 def _check_id_prefix_recommendations(project: Project) -> list[ValidationIssue]:
     """Warn if IDs do not follow the recommended prefix conventions.
 
@@ -778,6 +870,7 @@ def validate_project_data(data: Any) -> ValidationReport:
 
     issues.extend(_check_global_id_uniqueness(project))
     issues.extend(_check_references(project))
+    issues.extend(_check_dependency_cycles(project))
     issues.extend(_check_gate_milestone_empty(project))
     issues.extend(_check_dependency_milestone_order(project))
     issues.extend(_check_id_prefix_recommendations(project))
