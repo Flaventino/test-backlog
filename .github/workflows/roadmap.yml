@@ -25,7 +25,6 @@ jobs:
       contents: read
       issues: read
     steps:
-steps:
       - name: Setup GitHub CLI
         uses: dev-hanz-ops/install-gh-cli-action@v0.1.0
         with:
