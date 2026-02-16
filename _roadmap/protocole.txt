@@ -10,10 +10,10 @@ Le Milestone est l'unité de synchronisation globale. Il ne produit rien par lui
 **Inventaire des Caractéristiques :**
 + ID (Unique) : Référence interne pour le système (ADN).
 + Titre : Nom clair de la phase (ex: "Bêta Publique").
-+ Start_Delay (Inertie) : Entier (jours). Temps d'attente avant le début, relatif à la fin du Milestone précédent ou à la date de départ.
++ Start_Delay (Inertie) : Entier (jours). Nombre de jours d'attente, depuis T0 (date de début du projet), avant le lancement de ce Jalon. Permet le parallélisme.
 + Duration (Fenêtre) : Entier (jours). Temps alloué pour réaliser tout le contenu interne.
 + Description : Note stratégique sur l'objectif de la phase (Note d'intention). [Optionnel - bonnes pratiques]
-+ Date d'échéance (Calculée) : Calculée au moment de l'interprétation d'un document de planification dont la construction aurait suivi le plan décrit par Le présent document. Sa valeur serait alors le résultat de : T0 + Start_Delay + Duration. Où T0 est simplement la date (du jour) à laquelle ledit "document de planification" aurait été déployé (ou interprété)
++ Date d'échéance (Calculée) : T0 + Start_Delay + Duration. (Où T0 est la date de lancement effective, spécifiée au déploiement).
 
 
 

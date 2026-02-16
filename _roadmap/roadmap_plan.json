@@ -127,7 +127,7 @@
       "titre": "Provisionner environnement AWS/GCP",
       "configuration": "Membre",
       "estimate": 16,
-      "depends_on": ["T-017"],
+      "depends_on": [],
       "description": "Configuration VPC, subnets, security groups, RDS instances"
     },
     {
