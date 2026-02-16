@@ -41,7 +41,7 @@ jobs:
 
           # Execute query
           issue_count=$(gh issue list "${options[@]}")
-          echo "I S S U E   L I S T : $milestone_count"
+          echo "I S S U E   L I S T : $issue_count"
           milestone_count=$(gh milestone list "${options[@]}")
           echo "M I L E S T O N E S   L I S T : $milestone_count"
           # --- PHASE 2: DECISION & REPORTING
