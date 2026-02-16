@@ -46,13 +46,10 @@ jobs:
           
           # Execute query
           issue_count=$(gh issue list "${options[@]}")
-          echo "I S S U E   L I S T : $issue_count"
-          # milestone_count=$(gh milestone list "${options[@]}")
           milestone_count=$(gh api repos/$REPO/milestones --jq 'length')
-          echo "M I L E S T O N E S   L I S T : $milestone_count"
-          exit 1
+
           # --- PHASE 2: DECISION & REPORTING
-          if [ "$issue_count" -eq 0 ]; then
+          if [ "$issue_count" -eq 0 ] && [ "$milestone_count" -eq 0 ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
           else
             echo "go=false" >> "$GITHUB_OUTPUT"
@@ -63,12 +60,12 @@ jobs:
             # B. Generate Report (Summary)
             {
               echo "## Workflow Skipped"
-              echo "**Reason:** Repository already contains GitHub Issues (Open or Closed)."
+              echo "**Reason:** Repository already contains GitHub Issues or Milestones (Open or Closed)."
               echo "> *Execution bypassed to prevent data overwrite.*"
               echo
               echo "### Context"
               echo "This workflow is a **Bootstrap** tool designed to run ONLY on a pristine repository."
-              echo "It detects activity in the Issue Tracker and halts to ensure safety."
+              echo "It detects activity in the Issues and Milestones and halts to ensure safety."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
