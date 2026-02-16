@@ -50,6 +50,7 @@ jobs:
           # milestone_count=$(gh milestone list "${options[@]}")
           milestone_count=$(gh api repos/$REPO/milestones --jq 'length')
           echo "M I L E S T O N E S   L I S T : $milestone_count"
+          exit 1
           # --- PHASE 2: DECISION & REPORTING
           if [ "$issue_count" -eq 0 ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
