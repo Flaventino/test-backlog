@@ -1,6 +1,6 @@
 # Roadmap Bootstrap (SPEC-1.0.0) → GitHub Milestones & Issues
 
-This repository contains a **one-shot bootstrap tool** that materializes a project roadmap written in **SPEC-1.0.0 JSON** into a GitHub “Jira-like” setup using:
+This repository contains a **one-shot bootstrap tool** that materializes a project roadmap written in **SPEC-1.0.0** ([FR](SPEC-1.0.0.fr.md) | [EN](SPEC-1.0.0.en.md)) JSON into a GitHub “Jira-like” setup using:
 
 - **GitHub Milestones** (protocol Milestones)
 - **GitHub Issues** for:
@@ -8,14 +8,35 @@ This repository contains a **one-shot bootstrap tool** that materializes a proje
   - **Tasks** (issues labeled `rm:task`)
 - Clickable dependency links (e.g. `Depends on #123`)
 
-## Scope (V1)
-- **One-shot only**: designed to run **once** on a **pristine repository**.
-- No synchronization, no update of existing Issues/Milestones.
-- If you need a re-run, you must return the repo to a pristine state (see “Recovery / Cleanup”).
+---
+
+## Scope
+
+This tool is intended to **bootstrap** a brand new project on GitHub from a validated roadmap plan.
 
 ---
 
-## 1) Files and locations
+## Limitations (by design)
+
+- **One-shot only**: the workflow is designed to run on a **pristine repository**.
+- No synchronization or update of existing Issues/Milestones.
+- No automatic schedule drift handling (if the plan slips, adjust on GitHub manually).
+- If a run fails mid-deployment, you may end up with a partial state and must clean up manually (see “Recovery / Cleanup”).
+
+---
+
+## Specification (Protocol)
+
+This tool expects a roadmap JSON compliant with **SPEC-1.0.0**:
+
+- **Normative reference (FR):** [SPEC-1.0.0.fr.md](SPEC-1.0.0.fr.md)
+- **English translation (EN):** [SPEC-1.0.0.en.md](SPEC-1.0.0.en.md)
+
+The French version is the source of truth. The English version is provided for convenience.
+
+---
+
+## Files and locations
 
 - Roadmap plan (input):  
   `/_roadmap/roadmap_plan.json`
@@ -31,11 +52,11 @@ This repository contains a **one-shot bootstrap tool** that materializes a proje
 
 ---
 
-## 2) Pre-flight requirement: **Pristine repository**
+## Pristine repository requirement
 
-This tool will not run unless the repository is pristine.
+The workflow will not run unless the repository is pristine.
 
-**Pristine =**
+**Pristine means:**
 - **0 GitHub Issues** (open or closed)
 - **0 GitHub Milestones** (open or closed)
 
@@ -43,21 +64,21 @@ If existing Issues and/or Milestones are detected, the workflow is **skipped on 
 
 ---
 
-## 3) Quick start (GitHub-first)
+## Quick start (GitHub-first)
 
-### Step A — Copy the starter kit into your repo
+### 1) Copy the starter kit into your repo
 Copy these paths into your target repository and commit them:
 - `/.github/workflows/roadmap.yml`
 - `/_roadmap/` (folder)
 
-### Step B — Write your plan
+### 2) Write your plan
 Edit:
 - `/_roadmap/roadmap_plan.json`
 
 Ensure it follows **SPEC-1.0.0** and that `metadata.version_protocole` is exactly:
 - `SPEC-1.0.0`
 
-### Step C — Run the workflow
+### 3) Run the workflow
 1) Go to the **Actions** tab  
 2) Select **Apply Project Roadmap**  
 3) Click **Run workflow**  
@@ -65,7 +86,7 @@ Ensure it follows **SPEC-1.0.0** and that `metadata.version_protocole` is exactl
 
 ---
 
-## 4) Workflow inputs (Run workflow)
+## Workflow inputs
 
 ### `t0` (optional)
 - Format: **YYYY-MM-DD** (ISO)
@@ -87,7 +108,7 @@ Decision rules:
 
 ---
 
-## 5) What gets created on GitHub
+## What gets created on GitHub
 
 ### Milestones
 - One GitHub Milestone per protocol milestone
@@ -106,7 +127,7 @@ This tool creates and uses labels prefixed with **`rm:`** to avoid collisions:
 
 ### Tasks
 - Each Task becomes a **GitHub Issue** labeled `rm:task`
-- If the parent is an Epic and the Epic has a label, the Task inherits the Epic theme label `rm:<label>` (B1).
+- If the parent is an Epic and the Epic has a label, the Task inherits the Epic theme label `rm:<label>`.
 - Tasks are created in **topological order** to ensure dependencies are linkable at creation time.
 
 ### Dependencies (clickable)
@@ -116,9 +137,9 @@ This tool creates and uses labels prefixed with **`rm:`** to avoid collisions:
 
 ---
 
-## 6) GitHub encoding conventions (V1)
+## GitHub encoding conventions
 
-GitHub does not provide native “Epic” objects. This tool uses a stable V1 convention:
+GitHub does not provide native “Epic” objects. This tool uses the following convention:
 
 - **Milestone (protocol)** → **GitHub Milestone**
 - **Epic (protocol)** → **GitHub Issue** labeled `rm:epic`
@@ -132,9 +153,9 @@ GitHub does not provide native “Epic” objects. This tool uses a stable V1 co
 
 ---
 
-## 7) Official V1 templates (exact output)
+## Official templates (exact output)
 
-### 7.1 Milestone description template
+### Milestone description
 ```markdown
 **Protocol-ID:** M-XX
 **Kind:** Milestone
@@ -149,7 +170,7 @@ GitHub does not provide native “Epic” objects. This tool uses a stable V1 co
 <description from JSON (if provided)>
 ```
 
-### 7.2 Epic issue body template
+### Epic issue body
 ```markdown
 **Protocol-ID:** E-XX
 **Kind:** Epic
@@ -161,7 +182,7 @@ GitHub does not provide native “Epic” objects. This tool uses a stable V1 co
 <description from JSON (if provided)>
 ```
 
-### 7.3 Task issue body template
+### Task issue body
 ```markdown
 **Protocol-ID:** T-XX
 **Kind:** Task
@@ -185,7 +206,7 @@ Template rules:
 
 ---
 
-## 8) Create a Jira-like board (GitHub Project) — C1
+## Create a Jira-like board (GitHub Project)
 
 ### Objective
 Get a **Backlog / In progress / Done** board to manage the issues created by the tool.
@@ -215,17 +236,17 @@ You can now manage your project “like Jira” by moving cards across columns.
 
 ---
 
-## 9) Recovery / Cleanup (if the gate blocks or a run failed mid-deployment)
+## Recovery / Cleanup
+
+This section applies if the workflow is skipped by the safety gate (repo not pristine) or if a run failed mid-deployment.
 
 ### If the workflow is skipped (repo not pristine)
-The repository contains existing Issues and/or Milestones. This is expected safety behavior.
-
-To run the one-shot bootstrap, you must return to:
+To run the bootstrap, you must return to:
 - **0 Issues**
 - **0 Milestones**
 
 ### If the workflow failed mid-deployment (partial state)
-V1 does not attempt automatic rollback. Use manual cleanup.
+The tool does not attempt automatic rollback. Use manual cleanup.
 
 #### Minimum cleanup (required to re-run safely)
 1) Delete all created **GitHub Issues** (Epics and Tasks).  
@@ -238,6 +259,7 @@ Then re-run the workflow.
 
 ---
 
-## 10) Customization (V1)
+## Customization
+
 - The plan path is configured in the workflow via environment variables (single place to edit).
-- Label prefix is fixed to `rm:` in V1 (by design).
+- Label prefix is fixed to `rm:` (by design).

@@ -156,19 +156,3 @@ The script must collect all anomalies and produce an English report for each:
 - Correction suggestion when possible
 
 It must then return a boolean status (`True` if valid, `False` otherwise) after printing the report.
-
-
-
-
-
-
-
-
-## Specification (Protocol)
-
-This tool expects a roadmap JSON compliant with **SPEC-1.0.0**:
-
-- **Normative reference (FR):** [SPEC-1.0.0.fr.md](SPEC-1.0.0.fr.md)
-- **English translation (EN):** [SPEC-1.0.0.en.md](SPEC-1.0.0.en.md)
-
-The French version is the source of truth. The English version is provided for convenience.
