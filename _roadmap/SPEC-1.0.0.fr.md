@@ -2,6 +2,9 @@
 
 Ce document définit le protocole **SPEC-1.0.0** pour formaliser un projet sous forme d’un fichier JSON (“plan”), puis l’instancier via un outil d’automatisation.
 
+> **Référence normative :** la version française fait foi.  
+> Une traduction anglaise est fournie dans `SPEC-1.0.0.en.md`.
+
 ---
 
 ## 1. L’Individu "MILESTONE" (Le Gardien du Temps)
