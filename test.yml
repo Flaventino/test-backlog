@@ -1,0 +1,160 @@
+name: Apply Project Roadmap
+
+on:
+  workflow_dispatch:
+    inputs:
+      t0:
+        description: "Optional project start date T0 (ISO): YYYY-MM-DD. If empty: defaults to workflow run date."
+        required: false
+        type: string
+        default: ""
+      force_apply:
+        description: "Apply even if warnings are present (errors still abort)."
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REPO: ${{ github.repository }}
+
+jobs:
+  gate:
+    name: Pre-flight Audit (Pristine Repo Check)
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.audit.outputs.go }}
+    permissions:
+      contents: read
+      issues: read
+
+    steps:
+      - name: Verify Issues & Milestones are Empty
+        id: audit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # --- INSPECT: GitHub Issues (open + closed) ---
+          issue_count=$(gh issue list \
+            --repo "$REPO" \
+            --state all \
+            --limit 1 \
+            --json number \
+            -q 'length')
+
+          # --- INSPECT: GitHub Milestones (open + closed) ---
+          # Milestones are NOT Issues; check them explicitly.
+          milestone_count=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$REPO/milestones?state=all&per_page=1" \
+            --jq 'length')
+
+          # --- DECIDE ---
+          if [ "$issue_count" -eq 0 ] && [ "$milestone_count" -eq 0 ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+
+            echo "::notice title=Pre-flight OK::Repository is pristine (0 issues, 0 milestones)."
+
+            {
+              echo "## Pre-flight Audit"
+              echo
+              echo "### Pristine repository requirement"
+              echo "This workflow runs only on a **pristine repository**."
+              echo
+              echo "**Pristine means:**"
+              echo "- **0 GitHub Issues** (open or closed)"
+              echo "- **0 GitHub Milestones** (open or closed)"
+              echo
+              echo "### Detected"
+              echo "- Issues (all states): **0**"
+              echo "- Milestones (all states): **0**"
+              echo
+              echo "✅ Repository is pristine. Proceeding to roadmap materialization."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          echo "go=false" >> "$GITHUB_OUTPUT"
+
+          echo "::notice title=Workflow skipped::Repository is not pristine (issues and/or milestones exist)."
+
+          {
+            echo "## Workflow Skipped (Safety Gate)"
+            echo
+            echo "### Why this happened"
+            echo "This is a **one-shot bootstrap tool** and it requires a **pristine repository**."
+            echo
+            echo "### Detected"
+            echo "- Issues (all states): **$issue_count**"
+            echo "- Milestones (all states): **$milestone_count**"
+            echo
+            echo "### Recovery / Cleanup"
+            echo "To run the bootstrap, return to:"
+            echo "- **0 Issues**"
+            echo "- **0 Milestones**"
+            echo
+            echo "**Minimum cleanup (required):**"
+            echo "1) Delete all created GitHub Issues (Epics and Tasks)"
+            echo "2) Delete all created GitHub Milestones"
+            echo
+            echo "**Optional cleanup (perfectly clean repo):**"
+            echo "3) Delete all labels starting with \`rm:\`"
+            echo
+            echo "See \`/_roadmap/README.md\` → **Recovery / Cleanup** for details."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Exit 0 so the workflow stays green (skipped by design).
+          exit 0
+
+  process-roadmap:
+    name: Roadmap Processing (Preflight + Apply)
+    runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    permissions:
+      contents: read
+      issues: write
+
+    env:
+      PLAN: "_roadmap/roadmap_plan.json"
+      PLAN_MATERIALIZER: "_roadmap/materialize_plan.py"
+      REQUIREMENTS: "_roadmap/requirements.txt"
+      FORCE_APPLY: ${{ inputs.force_apply }}
+      T0: ${{ inputs.t0 }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python Tooling (uv)
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies (isolated)
+        run: |
+          set -euo pipefail
+          uv venv --python 3.12
+          . .venv/bin/activate
+          uv pip install -r "$REQUIREMENTS"
+
+      - name: Materialize Plan (preflight + apply)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate
+
+          args=(--plan "$PLAN")
+
+          # Optional T0
+          if [ -n "$T0" ]; then
+            args+=(--t0 "$T0")
+          fi
+
+          # Warnings override
+          if [ "$FORCE_APPLY" = "true" ]; then
+            args+=(--force-apply)
+          fi
+
+          python "$PLAN_MATERIALIZER" "${args[@]}"

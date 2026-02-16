@@ -1,17 +1,23 @@
 name: Apply Project Roadmap
+
 on:
   workflow_dispatch:
     inputs:
+      t0:
+        description: "Optional project start date T0 (ISO): YYYY-MM-DD. If empty: defaults to workflow run date."
+        type: string
+        default: ""
       force_apply:
-        description: 'Ignore JSON file validation failures.'
+        description: 'Apply even if warnings are present (errors still abort).'
         type: boolean
         default: false
+
 env:
   REPO: ${{ github.repository }}
 
 jobs:
   gate:
-    name: Pre-flight Audit
+    name: Pre-flight Audit (Pristine Repo Check)
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.audit.outputs.go }}
@@ -35,7 +41,8 @@ jobs:
 
           # Execute query
           issue_count=$(gh issue list "${options[@]}")
-
+          milestone_count=$(gh milestone list "${options[@]}")
+          echo "M I L E S T O N E S : $milestone_count"
           # --- PHASE 2: DECISION & REPORTING
           if [ "$issue_count" -eq 0 ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
