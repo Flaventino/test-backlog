@@ -1,12 +1,3 @@
-Vous avez raison : ce que vous vouliez, c’est **la version Markdown “jolie”** que je vous avais donnée, **mais complète jusqu’à la fin (5.2, 5.3, etc.)**.
-
-Je vous la redonne ci-dessous en **un seul bloc copiable**, en utilisant une *fence externe à 4 backticks* pour éviter tout problème avec les sous-blocs ```jsonc```.
-
-## `/_roadmap/SPEC-1.0.0.md` — version Markdown complète (copier/coller)
-
-> Copiez **tout** le contenu entre les fences ` ````markdown ` et ` ```` ` dans `/_roadmap/SPEC-1.0.0.md`.
-
-````markdown
 # SPEC-1.0.0 — Protocole de Formalisation et d’Instanciation de Projets Informatiques
 
 Ce document définit le protocole **SPEC-1.0.0** pour formaliser un projet sous forme d’un fichier JSON (“plan”), puis l’instancier via un outil d’automatisation.
@@ -162,6 +153,3 @@ Le script doit collecter toutes les anomalies et produire un rapport en anglais 
 - Suggestion de correction si possible
 
 Il retournera ensuite un statut booléen (`True` si valide, `False` sinon) après affichage du rapport.
-````
-
-Si vous voulez, je peux aussi vous fournir (en 2 lignes) la petite section à ajouter au README de l’outil pour pointer vers ce fichier `SPEC-1.0.0.md`.
