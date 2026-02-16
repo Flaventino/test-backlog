@@ -25,6 +25,12 @@ jobs:
       contents: read
       issues: read
     steps:
+steps:
+      - name: Setup GitHub CLI
+        uses: dev-hanz-ops/install-gh-cli-action@v0.1.0
+        with:
+          gh-cli-version: latest
+
       - name: Verify Issue Tracker is Empty
         id: audit
         env:
