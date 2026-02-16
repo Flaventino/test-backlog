@@ -25,10 +25,10 @@ jobs:
       contents: read
       issues: read
     steps:
-      - name: Setup GitHub CLI
-        uses: dev-hanz-ops/install-gh-cli-action@v0.1.0
-        with:
-          gh-cli-version: latest
+      # - name: Setup GitHub CLI
+      #   uses: dev-hanz-ops/install-gh-cli-action@v0.1.0
+      #   with:
+      #     gh-cli-version: latest
 
       - name: Verify Issue Tracker is Empty
         id: audit
@@ -43,11 +43,12 @@ jobs:
             --limit 1
             --json number -q length
           )
-
+          
           # Execute query
           issue_count=$(gh issue list "${options[@]}")
           echo "I S S U E   L I S T : $issue_count"
-          milestone_count=$(gh milestone list "${options[@]}")
+          # milestone_count=$(gh milestone list "${options[@]}")
+          milestone_count=$(gh api repos/$REPO/milestones --jq 'length')
           echo "M I L E S T O N E S   L I S T : $milestone_count"
           # --- PHASE 2: DECISION & REPORTING
           if [ "$issue_count" -eq 0 ]; then
