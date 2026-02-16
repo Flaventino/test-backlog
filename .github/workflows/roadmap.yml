@@ -4,11 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       t0:
-        description: "Optional project start date T0 (ISO): YYYY-MM-DD. If empty: defaults to workflow run date."
+        description: |
+          Project start date (YYYY-MM-DD):
+          **default** workflow run date if left empty.
         type: string
         default: ""
       force_apply:
-        description: 'Apply even if warnings are present (errors still abort).'
+        description: Apply despite warnings (errors still abort).
         type: boolean
         default: false
 
@@ -25,11 +27,6 @@ jobs:
       contents: read
       issues: read
     steps:
-      # - name: Setup GitHub CLI
-      #   uses: dev-hanz-ops/install-gh-cli-action@v0.1.0
-      #   with:
-      #     gh-cli-version: latest
-
       - name: Verify Issue Tracker is Empty
         id: audit
         env:
