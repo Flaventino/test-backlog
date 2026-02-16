@@ -5,8 +5,8 @@ on:
     inputs:
       t0:
         description: |
-          "Project start date (YYYY-MM-DD):
-          -- workflow run date if left empty --"
+          Project start date (YYYY-MM-DD):\n
+          -- workflow run date by default --
         type: string
         default: ""
       force_apply:
