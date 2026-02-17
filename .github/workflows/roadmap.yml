@@ -34,25 +34,28 @@ jobs:
         run: |
           # --- PHASE 1: INSPECTION ---
           # Defining query parameters (Fast-scan for any Open or Closed issues)
-          options=(
+          issue_query_options=(
             --repo "$REPO"
             --state all
             --limit 1
             --json number -q length
           )
-          
-          # Execute query
-          issue_count=$(gh issue list "${options[@]}")
-          milestone_count=$(gh api \
-            "/repos/$REPO/milestones?state=all&per_page=1" \
+
+          milestone_query_options=(
+            -H "Accept: application/vnd.github+json"
+            "/repos/$REPO/milestones?state=all&per_page=1"
             --jq 'length'
           )
+          
+          # Execute query
+          has_issues=$(gh issue list "${issue_query_options[@]}")
+          has_milestones=$(gh api "${milestone_query_options[@]}")
           # repos/$REPO/milestones?state=all&per_page=1 --jq 'length')
 
           echo "NOMBRE DE MILESTONES: $milestone_count"
 
           # # --- PHASE 2: DECISION & REPORTING
-          # if [[ "$issue_count" -eq 0 && "$milestone_count" -eq 0 ]]; then
+          # if [[ "$has_issues" -eq 0 && "$has_milestones" -eq 0 ]]; then
           #   echo "go=true" >> "$GITHUB_OUTPUT"
           # else
           #   echo "go=false" >> "$GITHUB_OUTPUT"
