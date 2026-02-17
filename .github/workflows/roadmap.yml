@@ -43,7 +43,7 @@ jobs:
 
           milestone_query_options=(
             -H "Accept: application/vnd.github+json"
-            "/repos/$REPO/milestones?state=all&per_page=1"
+            "/repos/$REPO/milestones?state=all&per_page=50"
             --jq 'length'
           )
           
