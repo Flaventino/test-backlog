@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       t0:
-        description: "Optional project start date T0 (ISO): YYYY-MM-DD. If empty: defaults to workflow run date."
-        required: false
+        description: >
+          Project start date (YYYY-MM-DD):
+          -- workflow run date by default --
         type: string
         default: ""
       force_apply:
-        description: "Apply even if warnings are present (errors still abort)."
-        required: false
+        description: Apply despite warnings.
         type: boolean
         default: false
 
@@ -26,218 +26,128 @@ jobs:
     permissions:
       contents: read
       issues: read
-
     steps:
-      - name: Verify Issues & Milestones are Empty
+      - name: Verify Issue Tracker is Empty
         id: audit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
+          # --- PHASE 1: INSPECTION ---
+          # Defining query parameters (Fast-scan for any Open or Closed issues)
+          options=(
+            --repo "$REPO"
+            --state all
+            --limit 1
+            --json number -q length
+          )
+          
+          # Execute query
+          issue_count=$(gh issue list "${options[@]}")
+          milestone_count=$(gh api repos/$REPO/milestones --jq 'length')
 
-          # --- INSPECT: GitHub Issues (open + closed) ---
-          issue_count=$(gh issue list \
-            --repo "$REPO" \
-            --state all \
-            --limit 1 \
-            --json number \
-            -q 'length')
-
-          # --- INSPECT: GitHub Milestones (open + closed) ---
-          # Milestones are NOT Issues; check them explicitly.
-          milestone_count=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/$REPO/milestones?state=all&per_page=1" \
-            --jq 'length')
-
-          # --- DECIDE ---
+          # --- PHASE 2: DECISION & REPORTING
           if [ "$issue_count" -eq 0 ] && [ "$milestone_count" -eq 0 ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
 
-            echo "::notice title=Pre-flight OK::Repository is pristine (0 issues, 0 milestones)."
+            # A. Signal User (Notice)
+            echo "::notice title=Workflow skipped::GitHub Issues is not empty."
 
+            # B. Generate Report (Summary)
             {
-              echo "## Pre-flight Audit"
+              echo "## Workflow Skipped"
+              echo "**Reason:** Repository already contains GitHub Issues or Milestones (Open or Closed)."
+              echo "> *Execution bypassed to prevent data overwrite.*"
               echo
-              echo "### Pristine repository requirement"
-              echo "This workflow runs only on a **pristine repository**."
-              echo
-              echo "**Pristine means:**"
-              echo "- **0 GitHub Issues** (open or closed)"
-              echo "- **0 GitHub Milestones** (open or closed)"
-              echo
-              echo "### Detected"
-              echo "- Issues (all states): **0**"
-              echo "- Milestones (all states): **0**"
-              echo
-              echo "✅ Repository is pristine. Proceeding to roadmap materialization."
+              echo "### Context"
+              echo "This workflow is a **Bootstrap** tool designed to run ONLY on a pristine repository."
+              echo "It detects activity in the Issues and Milestones and halts to ensure safety."
             } >> "$GITHUB_STEP_SUMMARY"
-
-            exit 0
           fi
 
-          echo "go=false" >> "$GITHUB_OUTPUT"
-
-          echo "::notice title=Workflow skipped::Repository is not pristine (issues and/or milestones exist)."
-
-          {
-            echo "## Workflow Skipped (Safety Gate)"
-            echo
-            echo "### Why this happened"
-            echo "This is a **one-shot bootstrap tool** and it requires a **pristine repository**."
-            echo
-            echo "### Detected"
-            echo "- Issues (all states): **$issue_count**"
-            echo "- Milestones (all states): **$milestone_count**"
-            echo
-            echo "### Recovery / Cleanup"
-            echo "To run the bootstrap, return to:"
-            echo "- **0 Issues**"
-            echo "- **0 Milestones**"
-            echo
-            echo "**Minimum cleanup (required):**"
-            echo "1) Delete all created GitHub Issues (Epics and Tasks)"
-            echo "2) Delete all created GitHub Milestones"
-            echo
-            echo "**Optional cleanup (perfectly clean repo):**"
-            echo "3) Delete all labels starting with \`rm:\`"
-            echo
-            echo "See \`/_roadmap/README.md\` → **Recovery / Cleanup** for details."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          # Exit 0 so the workflow stays green (skipped by design).
-          exit 0
-
   process-roadmap:
-    name: Roadmap Processing (Preflight + Apply)
+    name: Roadmap Processing
     runs-on: ubuntu-latest
     needs: gate
     if: needs.gate.outputs.go == 'true'
     permissions:
       contents: read
       issues: write
-
     env:
-      PLAN: "_roadmap/roadmap_plan.json"
-      PLAN_MATERIALIZER: "_roadmap/materialize_plan.py"
-      REQUIREMENTS: "_roadmap/requirements.txt"
-      FORCE_APPLY: ${{ inputs.force_apply }}
-      T0: ${{ inputs.t0 }}
-
+      PLAN: '_roadmap/roadmap_plan.json'
+      FORCE: ${{ inputs.force_apply }}
+      PLAN_CHECKER: '_roadmap/validate_plan.py'
+      PLAN_APPLIER: '_roadmap/apply_plan.py'
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Python Tooling (uv)
         uses: astral-sh/setup-uv@v3
 
-      - name: Install dependencies (isolated)
-        run: |
-          set -euo pipefail
-          uv venv --python 3.12
-          . .venv/bin/activate
-          uv pip install -r "$REQUIREMENTS"
-
-      - name: Materialize Plan (preflight + apply)
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Validate Project Plan
         run: |
           set -uo pipefail
 
-          . .venv/bin/activate
+          # --- EXECUTE VALIDATION PROCESS ---
+          # A. Configure UV environment & args
+          uv_args=(
+            --no-project
+            --python 3.14
+            --with "pydantic>=2.12,<2.13"
+          )
 
-          args=(--plan "$PLAN" --repo "$REPO" --token "$GH_TOKEN")
-
-          # Optional T0
-          if [ -n "$T0" ]; then
-            args+=(--t0 "$T0")
-          fi
-
-          # Optional override
-          if [ "$FORCE_APPLY" = "true" ]; then
-            args+=(--force)
-          fi
-
-          # --- Run script and capture its real exit code (not tee's) ---
+          # B. Execute with upstream error trapping
           set +e
-          python "$PLAN_MATERIALIZER" "${args[@]}" | tee report.txt
+          uv run "${uv_args[@]}" "$PLAN_CHECKER" --plan "$PLAN" | tee report.txt
           status=${PIPESTATUS[0]}
           set -e
 
-          # --- YAML UX policy (UX-2) ---
-          case "$status" in
-            0)
-              {
-                echo "## Roadmap Materialization"
-                echo
-                echo "✅ Applied successfully (no warnings)."
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-              ;;
-            20)
-              # Warnings were detected (script returns 20).
-              # If force was enabled, we consider the workflow successful but we surface warnings.
-              echo "::warning title=Roadmap warnings::Warnings were detected. Review the report below."
-              {
-                echo "## Roadmap Materialization"
-                echo
-                if [ "$FORCE_APPLY" = "true" ]; then
-                  echo "✅ Applied with override (**warnings present**, forced by user)."
-                else
-                  echo "❌ Not applied (**warnings present**). Re-run with force if you accept the risk."
-                fi
-                echo
-                echo "### Report (stdout)"
-                echo "\`\`\`"
-                cat report.txt
-                echo "\`\`\`"
-              } >> "$GITHUB_STEP_SUMMARY"
+          # --- DECISION LOGIC ---
+          # CASE 1: SUCCESS
+          if [ "$status" -eq 0 ]; then exit 0; fi
 
-              if [ "$FORCE_APPLY" = "true" ]; then
-                exit 0
-              fi
-              exit 20
-              ;;
-            22)
-              echo "::error title=Roadmap errors::Blocking errors detected. Apply aborted."
-              {
-                echo "## Roadmap Materialization"
-                echo
-                echo "❌ Apply aborted (**blocking errors detected**)."
-                echo
-                echo "### Report (stdout)"
-                echo "\`\`\`"
-                cat report.txt
-                echo "\`\`\`"
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 22
-              ;;
-            1)
-              echo "::error title=Materializer crash::The script crashed (unexpected error)."
-              {
-                echo "## Roadmap Materialization"
-                echo
-                echo "❌ Script crashed (unexpected error)."
-                echo
-                echo "### Report (stdout)"
-                echo "\`\`\`"
-                cat report.txt
-                echo "\`\`\`"
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 1
-              ;;
-            *)
-              echo "::error title=Unexpected exit code::Materializer exited with code $status."
-              {
-                echo "## Roadmap Materialization"
-                echo
-                echo "❌ Unexpected exit code: **$status**"
-                echo
-                echo "### Report (stdout)"
-                echo "\`\`\`"
-                cat report.txt
-                echo "\`\`\`"
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit "$status"
-              ;;
-          esac
+          # CASE 2: CRITICAL ERRORS
+          if [ "$status" -ne 20 ]; then exit $status; fi
+
+          # CASE 3: VALIDATION FAILURES (code 20)
+          # A. Build Public Report
+          {
+            echo "## 🛑 Validation Failed"
+            echo "The document \`$PLAN\` did not pass validation rules."
+            echo
+            echo "### 📋 Compliance Report"
+            echo '```text'
+            cat report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # B. Apply Force Policy
+          if [ "$FORCE" == "true" ]; then
+            # FORCE ON -> WARNING & CONTINUE
+            echo "::warning title=Safety Override::Validation failed but execution was FORCED by user."
+            echo "> ⚠️ **WARNING:** Execution continues because 'FORCE' mode is active." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          else
+            # FORCE OFF -> ERROR & STOP
+            echo "::error title=Validation Blocked::Document is invalid. See Summary for details."
+            echo "> ⛔ **STOP:** Workflow halted standard safety procedure." >> "$GITHUB_STEP_SUMMARY"
+            exit 20
+          fi
+
+      # - name: Apply Plan (create GitHub Issues)
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     # --- PHASE 1: EXECUTION ---
+      #     # A. Configure UV environment & args
+      #     uv_args=(
+      #       --no-project
+      #       --python 3.14
+      #       --with "pydantic>=2.12,<2.13"
+      #     )
+
+      #     # B. Execute Roadmap Application
+      #     uv run "${uv_args[@]}" "$PLAN_APPLIER" --plan "$PLAN"
