@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       t0:
-        description: >
+        description: |
           Project start date (YYYY-MM-DD):
           -- workflow run date by default --
         type: string

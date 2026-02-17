@@ -121,6 +121,24 @@ This tool creates and uses labels prefixed with **`rm:`** to avoid collisions:
 - `rm:task`
 - `rm:<epic.label>` when `epic.label` is provided
 
+#### Label policy (type + theme)
+This tool uses two type labels and optional theme labels:
+- **Type labels (always present):**
+  - Epics: `rm:epic`
+  - Tasks: `rm:task`
+
+- **Theme labels (from `epic.label`):**
+  - When an Epic defines `label`, the tool creates/uses a theme label: `rm:<theme>`.
+  - This theme label is applied to the Epic **and inherited by all member Tasks** (tasks whose `parent_link` points to that Epic).
+
+- **Orphan Tasks (direct milestone attachment):**
+  - Tasks whose `parent_link` points directly to a Milestone receive: `rm:direct`.
+  - `rm:direct` uses a fixed neutral (grey) color.
+
+Notes:
+- Theme label colors are generated deterministically to stay stable across runs.
+- Dependency links do not affect labels.
+
 ### Epics
 - Each Epic becomes a **GitHub Issue** labeled `rm:epic` (+ optional theme label `rm:<label>`)
 - Each Epic is assigned to its GitHub Milestone (native GitHub field)
