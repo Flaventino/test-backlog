@@ -142,19 +142,102 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+
           . .venv/bin/activate
 
-          args=(--plan "$PLAN")
+          args=(--plan "$PLAN" --repo "$REPO" --token "$GH_TOKEN")
 
           # Optional T0
           if [ -n "$T0" ]; then
             args+=(--t0 "$T0")
           fi
 
-          # Warnings override
+          # Optional override
           if [ "$FORCE_APPLY" = "true" ]; then
-            args+=(--force-apply)
+            args+=(--force)
           fi
 
-          python "$PLAN_MATERIALIZER" "${args[@]}"
+          # --- Run script and capture its real exit code (not tee's) ---
+          set +e
+          python "$PLAN_MATERIALIZER" "${args[@]}" | tee report.txt
+          status=${PIPESTATUS[0]}
+          set -e
+
+          # --- YAML UX policy (UX-2) ---
+          case "$status" in
+            0)
+              {
+                echo "## Roadmap Materialization"
+                echo
+                echo "✅ Applied successfully (no warnings)."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            20)
+              # Warnings were detected (script returns 20).
+              # If force was enabled, we consider the workflow successful but we surface warnings.
+              echo "::warning title=Roadmap warnings::Warnings were detected. Review the report below."
+              {
+                echo "## Roadmap Materialization"
+                echo
+                if [ "$FORCE_APPLY" = "true" ]; then
+                  echo "✅ Applied with override (**warnings present**, forced by user)."
+                else
+                  echo "❌ Not applied (**warnings present**). Re-run with force if you accept the risk."
+                fi
+                echo
+                echo "### Report (stdout)"
+                echo "\`\`\`"
+                cat report.txt
+                echo "\`\`\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+
+              if [ "$FORCE_APPLY" = "true" ]; then
+                exit 0
+              fi
+              exit 20
+              ;;
+            22)
+              echo "::error title=Roadmap errors::Blocking errors detected. Apply aborted."
+              {
+                echo "## Roadmap Materialization"
+                echo
+                echo "❌ Apply aborted (**blocking errors detected**)."
+                echo
+                echo "### Report (stdout)"
+                echo "\`\`\`"
+                cat report.txt
+                echo "\`\`\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 22
+              ;;
+            1)
+              echo "::error title=Materializer crash::The script crashed (unexpected error)."
+              {
+                echo "## Roadmap Materialization"
+                echo
+                echo "❌ Script crashed (unexpected error)."
+                echo
+                echo "### Report (stdout)"
+                echo "\`\`\`"
+                cat report.txt
+                echo "\`\`\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            *)
+              echo "::error title=Unexpected exit code::Materializer exited with code $status."
+              {
+                echo "## Roadmap Materialization"
+                echo
+                echo "❌ Unexpected exit code: **$status**"
+                echo
+                echo "### Report (stdout)"
+                echo "\`\`\`"
+                cat report.txt
+                echo "\`\`\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit "$status"
+              ;;
+          esac

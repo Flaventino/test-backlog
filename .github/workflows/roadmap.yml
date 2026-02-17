@@ -8,7 +8,7 @@ on:
           Project start date (YYYY-MM-DD):
           -- workflow run date by default --
         type: string
-        default: ""
+        default: "test"
       force_apply:
         description: Apply despite warnings.
         type: boolean
