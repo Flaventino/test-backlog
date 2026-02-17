@@ -52,7 +52,7 @@ jobs:
           has_milestones=$(gh api "${milestone_query_options[@]}")
           # repos/$REPO/milestones?state=all&per_page=1 --jq 'length')
 
-          echo "NOMBRE DE MILESTONES: $milestone_count"
+          echo "NOMBRE DE MILESTONES: $has_milestones"
 
           # # --- PHASE 2: DECISION & REPORTING
           # if [[ "$has_issues" -eq 0 && "$has_milestones" -eq 0 ]]; then
