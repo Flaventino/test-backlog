@@ -43,7 +43,11 @@ jobs:
           
           # Execute query
           issue_count=$(gh issue list "${options[@]}")
-          milestone_count=$(gh api repos/$REPO/milestones?state=all&per_page=1 --jq 'length')
+          milestone_count=$(gh api \
+            "/repos/$REPO/milestones?state=all&per_page=1" \
+            --jq 'length'
+          )
+          # repos/$REPO/milestones?state=all&per_page=1 --jq 'length')
 
           echo "NOMBRE DE MILESTONES: $milestone_count"
 
