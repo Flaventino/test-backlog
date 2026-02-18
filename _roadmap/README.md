@@ -106,6 +106,10 @@ Decision rules:
   - `force_apply=false` → FAIL
   - `force_apply=true` → APPLY
 
+#### Validation note (protocol interpretation)
+
+The protocol states that an **"Indépendante"** task should have an empty `depends_on` list.  
+This tool treats a non-empty `depends_on` on an "Indépendante" task as a **warning** (not a blocking error).
 ---
 
 ## What gets created on GitHub
