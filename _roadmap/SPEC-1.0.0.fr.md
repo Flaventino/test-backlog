@@ -45,11 +45,11 @@ Les mentions de "validation", "script", ou "outil" dans ce document décrivent l
 
 ## 1. L'Individu "MILESTONE" (Le Gardien du Temps)
 
-Le Milestone est l'unité de synchronisation globale. Il ne produit rien par lui-même, il délimite. C'est le tuteur ultime : rien n'existe sur la carte sans lui être rattaché (Règle de Tutelle).
+Le Milestone (ou jalon en français) est l'unité de synchronisation globale. Il ne produit rien par lui-même, il délimite. C'est le tuteur ultime : rien n'existe sur la carte sans lui être rattaché (Règle de Tutelle).
 
 ### Configurations possibles
 
-- **Le Jalon Actif** : Contient des Epics et/ou des Tâches. Il représente une phase de production.
+- **Le Jalon Actif (Active)** : Contient des Epics et/ou des Tâches. Il représente une phase de production.
 
 - **Le Jalon de Contrôle (Gate)** : Vide de contenu. Il représente une date de décision, une fin de contrat ou un événement externe.
   
@@ -63,11 +63,11 @@ Le Milestone est l'unité de synchronisation globale. Il ne produit rien par lui
 ### Inventaire des caractéristiques
 
 - **ID (Unique)** : Référence interne pour le système (ADN).
-- **Titre** : Nom clair de la phase (ex: "Bêta Publique").
+- **Title** : Nom clair de la phase (ex: "Bêta Publique").
 - **Start_Delay (Inertie)** : Entier (jours). Nombre de jours d'attente, depuis T0 (date de début du projet), avant le lancement de ce Jalon. Permet le parallélisme.
 - **Duration (Fenêtre)** : Entier (jours). Temps alloué pour réaliser tout le contenu interne.
 - **Description** : Note stratégique sur l'objectif de la phase (Note d'intention). *(Optionnel — bonnes pratiques)*
-- **Date d'échéance (Calculée)** : `T0 + Start_Delay + Duration`. *(Où T0 est la date de lancement effective, spécifiée au déploiement.)*
+- **Due Date (Date d'échéance Calculée)** : `T0 + Start_Delay + Duration`. *(Où T0 est la date de lancement effective, spécifiée au déploiement.)*
 
 ---
 
@@ -83,7 +83,7 @@ L'Epic est un conteneur thématique. Elle sert à organiser la pensée et à reg
 ### Inventaire des caractéristiques
 
 - **ID (Unique)** : Référence interne.
-- **Titre** : Nom fonctionnel ou de la thématique.
+- **Title** : Nom fonctionnel ou de la thématique.
 - **Description** : Le "Pourquoi" et le périmètre de cette fonctionnalité. *(Optionnel — bonnes pratiques)*
 - **Label** : Tag permettant de filtrer les Epics sur un tableau de bord. *(Optionnel)*
 - **Parent_ID (Milestone_ID)** : Identifiant du Milestone auquel elle est rattachée (Lien de tutelle obligatoire).
@@ -96,15 +96,15 @@ La Tâche est la seule unité qui "consomme" de l'effort et qui peut être "bloq
 
 ### Configurations possibles
 
-- **La Tâche Indépendante** : Peut être réalisée n'importe quand durant son Milestone.
-- **La Tâche Séquentielle** : Dépend de la complétion d'une ou plusieurs autres tâches.
-- **La Tâche Orpheline (Directe)** : Rattachée à un Milestone sans passer par une Epic. Elle possède une tutelle temporelle directe.
-- **La Tâche Membre** : Enfermée dans une Epic. Elle possède une double tutelle.
+- **La Tâche Indépendante (Independent)** : Peut être réalisée n'importe quand durant son Milestone.
+- **La Tâche Séquentielle (Sequenntial)** : Dépend de la complétion d'une ou plusieurs autres tâches.
+- **La Tâche Orpheline (Orphan)** : Rattachée directement à un Milestone sans passer par une Epic. Elle possède une tutelle temporelle directe.
+- **La Tâche Membre (Member)** : Enfermée dans une Epic. Elle possède une double tutelle.
 
 ### Inventaire des caractéristiques
 
 - **ID (Unique)** : La clé de voûte pour les dépendances.
-- **Titre** : Action concrète (verbe d'action recommandé).
+- **Title** : Action concrète (verbe d'action recommandé).
 - **Description** : Détails techniques, critères d'acceptation et de succès. *(Optionnel — bonnes pratiques)*
 - **Estimate (Effort)** : Grandeur (en heures ou points) représentant la charge de travail.
 - **Depends_on** : Liste d'IDs de tâches devant être terminées avant (Séquençage).
@@ -173,8 +173,8 @@ Afin de garantir une gestion optimale des dépendances croisées (le Système Ne
 ```jsonc
 {
   "metadata": {
-    "projet_nom": "Nom du Projet",
-    "version_protocole": "SPEC-1.0.0",  /* Doit être exactement cette chaîne, sensible à la casse */
+    "project_name": "Nom du Projet",
+    "protocol_version": "SPEC-1.0.0",  /* Doit être exactement cette chaîne, sensible à la casse */
     "description": "Note d'intention globale sur le périmètre du projet.",  /* Optionnel */
     "estimate_unit": "days",  /* Obligatoire : "days" | "hours" | "story_points" */
     "velocity": 10  /* Requis uniquement si estimate_unit = "story_points" (points/jour) */
@@ -182,8 +182,8 @@ Afin de garantir une gestion optimale des dépendances croisées (le Système Ne
   "milestones": [
     {
       "id": "M-01",  /* Doit être unique globalement ; préfixe recommandé */
-      "titre": "Nom du Jalon",
-      "configuration": "Actif",  /* Valeurs autorisées : "Actif" ou "Gate" */
+      "title": "Nom du Jalon",
+      "configuration": "Actif",  /* Valeurs autorisées : "Active" ou "Gate" */
       "start_delay": 0,  /* Entier positif ou nul (jours) */
       "duration": 14,  /* Entier positif ou nul (jours) */
       "description": "Objectif stratégique du jalon."  /* Optionnel - bonnes pratiques */
@@ -193,7 +193,7 @@ Afin de garantir une gestion optimale des dépendances croisées (le Système Ne
     {
       "id": "E-01",  /* Doit être unique globalement ; préfixe recommandé */
       "parent_id": "M-01",  /* Doit référencer un milestone existant */
-      "titre": "Nom de l'Epic",
+      "title": "Nom de l'Epic",
       "configuration": "Standard",  /* Valeurs autorisées : "Standard" ou "Discovery" */
       "label": "Tag_GitHub",  /* Optionnel */
       "description": "Le Pourquoi et le périmètre fonctionnel."  /* Optionnel - bonnes pratiques */
@@ -203,8 +203,8 @@ Afin de garantir une gestion optimale des dépendances croisées (le Système Ne
     {
       "id": "T-01",  /* Doit être unique globalement ; préfixe recommandé */
       "parent_link": "E-01",  /* Doit référencer un milestone ou une epic existant(e) */
-      "titre": "Action à mener",
-      "configuration": "Sequentielle",  /* Valeurs autorisées : "Indépendante", "Sequentielle", "Orpheline", "Membre" */
+      "title": "Action à mener",
+      "configuration": "Sequentielle",  /* Valeurs autorisées : "Independent", "Sequential", "Orphan", "Member" */
       "estimate": 4,  /* Nombre positif ou nul (heures/points) */
       "depends_on": ["T-00"],  /* Liste d'IDs de tâches existantes ; vide si indépendante */
       "description": "Critères de succès et détails techniques.",  /* Optionnel - bonnes pratiques */
